@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Environment variables (never commit secrets)
+.env
+.env.local
+
+# Data files (don't commit large datasets)
+data/raw/*.csv
+data/raw/*.parquet
+data/raw/*.json
+!data/raw/sample_*.csv
+!data/raw/README.md
+
+# Streamlit
+.streamlit/secrets.toml
