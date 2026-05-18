@@ -41,13 +41,17 @@ class Emissions(BaseModel, frozen=True):
     """
 
     scope_1: float = Field(..., ge=0.0, description="Direct emissions (tCO2e)")
-    scope_2: float = Field(..., ge=0.0, description="Indirect emissions from purchased energy (tCO2e)")
+    scope_2: float = Field(
+        ..., ge=0.0, description="Indirect emissions from purchased energy (tCO2e)"
+    )
     scope_3: dict[Scope3Category, float] = Field(
         default_factory=dict,
         description="Scope 3 breakdown by GHG Protocol category (tCO2e). May be partial.",
     )
     source: str = Field(
-        ..., min_length=1, description="Data provenance: 'CDP', 'GRI', 'company_report', 'estimated'"
+        ...,
+        min_length=1,
+        description="Data provenance: 'CDP', 'GRI', 'company_report', 'estimated'",
     )
     confidence: float = Field(
         ...,
@@ -71,7 +75,9 @@ class Emissions(BaseModel, frozen=True):
 
     @field_validator("scope_3")
     @classmethod
-    def scope_3_values_non_negative(cls, v: dict[Scope3Category, float]) -> dict[Scope3Category, float]:
+    def scope_3_values_non_negative(
+        cls, v: dict[Scope3Category, float]
+    ) -> dict[Scope3Category, float]:
         """All Scope 3 category values must be non-negative."""
         for category, value in v.items():
             if value < 0.0:

@@ -36,7 +36,7 @@ class ScoreDecomposition:
     company_name: str
     final_score: float
     pillar_scores: dict[str, float]
-    theme_scores: dict[str, float]        # "pillar/theme" → score
+    theme_scores: dict[str, float]  # "pillar/theme" → score
     contributions: list[IndicatorContribution]
     methodology_hash: str
 
@@ -74,12 +74,7 @@ def decompose_score(company_score: CompanyScore) -> ScoreDecomposition:
             theme_scores[theme_key] = ts.score
 
             for ind_s in ts.indicators:
-                abs_contribution = (
-                    ind_s.normalized_value
-                    * ind_s.weight
-                    * ts.weight
-                    * ps.weight
-                )
+                abs_contribution = ind_s.normalized_value * ind_s.weight * ts.weight * ps.weight
                 contributions.append(
                     IndicatorContribution(
                         pillar_id=ps.pillar_id,

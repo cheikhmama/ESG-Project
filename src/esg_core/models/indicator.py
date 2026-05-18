@@ -58,10 +58,10 @@ class IndicatorDefinition(BaseModel, frozen=True):
         ..., min_length=1, description="Machine-readable identifier, e.g. 'scope_1_intensity'"
     )
     name: str = Field(..., min_length=1, description="Human-readable label")
-    pillar: str = Field(
-        ..., description="ESG pillar: 'environment', 'social', or 'governance'"
+    pillar: str = Field(..., description="ESG pillar: 'environment', 'social', or 'governance'")
+    theme: str = Field(
+        ..., min_length=1, description="Theme within the pillar, e.g. 'climate_change'"
     )
-    theme: str = Field(..., min_length=1, description="Theme within the pillar, e.g. 'climate_change'")
     unit: str = Field(..., min_length=1, description="Measurement unit, e.g. 'tCO2e/M$'")
     direction: Literal["higher_is_better", "lower_is_better"] = Field(
         ...,

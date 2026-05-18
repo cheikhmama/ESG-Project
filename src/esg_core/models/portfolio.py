@@ -20,9 +20,7 @@ class Holding(BaseModel, frozen=True):
     """
 
     company: Company = Field(..., description="The company held")
-    weight: float = Field(
-        ..., gt=0.0, le=1.0, description="Portfolio weight as a fraction (0, 1]"
-    )
+    weight: float = Field(..., gt=0.0, le=1.0, description="Portfolio weight as a fraction (0, 1]")
     investment_value: float = Field(
         ..., ge=0.0, description="Monetary value invested in portfolio currency"
     )
@@ -55,8 +53,7 @@ class Portfolio(BaseModel, frozen=True):
         total = sum(h.weight for h in self.holdings)
         if abs(total - 1.0) > _WEIGHT_TOLERANCE:
             msg = (
-                f"Portfolio holding weights must sum to 1.0 ± {_WEIGHT_TOLERANCE}. "
-                f"Got {total:.8f}"
+                f"Portfolio holding weights must sum to 1.0 ± {_WEIGHT_TOLERANCE}. Got {total:.8f}"
             )
             raise ValueError(msg)
         return self

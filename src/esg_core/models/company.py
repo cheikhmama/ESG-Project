@@ -16,7 +16,9 @@ class Company(BaseModel, frozen=True):
     ticker: str = Field(..., min_length=1, description="Stock ticker symbol, e.g. 'AAPL'")
     name: str = Field(..., min_length=1, description="Full legal name of the company")
     sector: str = Field(..., min_length=1, description="Industry sector, e.g. 'Technology'")
-    country: str = Field(..., min_length=2, max_length=2, description="ISO 3166-1 alpha-2 country code")
+    country: str = Field(
+        ..., min_length=2, max_length=2, description="ISO 3166-1 alpha-2 country code"
+    )
     isin: str = Field(..., min_length=12, max_length=12, description="ISO 6166 ISIN identifier")
     enterprise_value: float = Field(
         default=0.0,

@@ -45,7 +45,9 @@ class PillarScore(BaseModel, frozen=True):
     Reproducibility: frozen=True; children always present.
     """
 
-    pillar_id: str = Field(..., description="Pillar identifier: 'environment', 'social', 'governance'")
+    pillar_id: str = Field(
+        ..., description="Pillar identifier: 'environment', 'social', 'governance'"
+    )
     score: float = Field(..., ge=0.0, le=100.0, description="Weighted average of theme scores")
     weight: float = Field(..., ge=0.0, le=1.0, description="Weight within the methodology")
     weighted_contribution: float = Field(..., description="weight × score")

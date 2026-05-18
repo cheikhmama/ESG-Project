@@ -67,10 +67,14 @@ def aggregate_theme(
         peers = np.array(peer_matrix.get(ind_id, []), dtype=np.float64)
 
         if raw is None:
-            peer_normalised = np.array(
-                [normalize_percentile(float(p), peers, ind_cfg.direction) for p in peers],
-                dtype=np.float64,
-            ) if len(peers) > 0 else np.array([], dtype=np.float64)
+            peer_normalised = (
+                np.array(
+                    [normalize_percentile(float(p), peers, ind_cfg.direction) for p in peers],
+                    dtype=np.float64,
+                )
+                if len(peers) > 0
+                else np.array([], dtype=np.float64)
+            )
             sub = apply_missing_data_strategy(strategy, peer_normalised, ind_cfg.direction)
             if sub is None:
                 if strategy == MissingDataStrategy.PROPAGATE_NULL:

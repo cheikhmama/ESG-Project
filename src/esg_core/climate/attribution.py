@@ -30,7 +30,7 @@ class AttributedEmissions:
     attributed_scope_1: float  # tCO2e
     attributed_scope_2: float  # tCO2e
     attributed_scope_3: float  # tCO2e
-    attributed_total: float    # tCO2e
+    attributed_total: float  # tCO2e
     data_source: str
     confidence: float
 

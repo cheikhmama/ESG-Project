@@ -22,11 +22,11 @@ class PortfolioCarbonReport:
     """Aggregated carbon metrics for an entire portfolio."""
 
     portfolio_id: str
-    total_financed_emissions: float        # tCO2e
-    carbon_intensity: float                # tCO2e / $M invested
-    waci: float                            # Weighted Average Carbon Intensity
+    total_financed_emissions: float  # tCO2e
+    carbon_intensity: float  # tCO2e / $M invested
+    waci: float  # Weighted Average Carbon Intensity
     per_holding: list[AttributedEmissions]
-    total_investment_value: float          # USD
+    total_investment_value: float  # USD
 
 
 def compute_portfolio_carbon(
@@ -60,12 +60,16 @@ def compute_portfolio_carbon(
         # Here we use total_emissions / EVIC as the intensity proxy
         evic = holding.company.enterprise_value
         if evic > 0:
-            intensity = (emissions.scope_1 + emissions.scope_2 + emissions.total_scope_3) / (evic / 1_000_000)
+            intensity = (emissions.scope_1 + emissions.scope_2 + emissions.total_scope_3) / (
+                evic / 1_000_000
+            )
             waci += holding.weight * intensity
 
     total_financed = sum(ae.attributed_total for ae in per_holding)
     total_invested = portfolio.total_investment_value
-    carbon_intensity = (total_financed / (total_invested / 1_000_000)) if total_invested > 0 else 0.0
+    carbon_intensity = (
+        (total_financed / (total_invested / 1_000_000)) if total_invested > 0 else 0.0
+    )
 
     return PortfolioCarbonReport(
         portfolio_id=portfolio.id,

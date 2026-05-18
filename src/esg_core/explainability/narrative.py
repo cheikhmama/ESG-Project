@@ -46,8 +46,7 @@ def generate_narrative(decomposition: ScoreDecomposition) -> str:
     label = _score_label(score)
 
     lines: list[str] = [
-        f"{name} received an overall ESG score of {score:.1f}/100, "
-        f"which is considered {label}.",
+        f"{name} received an overall ESG score of {score:.1f}/100, which is considered {label}.",
     ]
 
     # Pillar breakdown
