@@ -1,0 +1,26 @@
+# Placeholder — services are not yet functional.
+# api:       implemented in Phase 7 (REST API)
+# dashboard: implemented in Phase 8 (Streamlit)
+# Dockerfiles will be added at those phases under docker/
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./methodologies:/app/methodologies
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/dashboard.Dockerfile
+    ports:
+      - "8501:8501"
+    env_file: .env
+    depends_on:
+      - api
