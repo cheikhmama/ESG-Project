@@ -1,0 +1,89 @@
+version: "1.0.0"
+name: "Default ESG Methodology v1"
+description: >
+  Balanced baseline methodology for ESG scoring.
+  Weights: Environment 40%, Social 30%, Governance 30%.
+  Covers 30+ indicators across 9 themes.
+missing_data_strategy: "industry_median"
+
+pillars:
+  environment:
+    weight: 0.40
+    themes:
+      climate_change:
+        weight: 0.50
+        indicators:
+          scope_1_intensity:      { weight: 0.25, direction: lower_is_better }
+          scope_2_intensity:      { weight: 0.25, direction: lower_is_better }
+          scope_3_intensity:      { weight: 0.20, direction: lower_is_better }
+          climate_policy:         { weight: 0.15, direction: higher_is_better }
+          renewable_energy_pct:   { weight: 0.15, direction: higher_is_better }
+
+      water:
+        weight: 0.25
+        indicators:
+          water_intensity:        { weight: 0.50, direction: lower_is_better }
+          water_recycling_pct:    { weight: 0.30, direction: higher_is_better }
+          water_policy:           { weight: 0.20, direction: higher_is_better }
+
+      biodiversity:
+        weight: 0.15
+        indicators:
+          land_use_impact:        { weight: 0.50, direction: lower_is_better }
+          biodiversity_policy:    { weight: 0.50, direction: higher_is_better }
+
+      waste:
+        weight: 0.10
+        indicators:
+          waste_intensity:        { weight: 0.50, direction: lower_is_better }
+          recycling_rate:         { weight: 0.50, direction: higher_is_better }
+
+  social:
+    weight: 0.30
+    themes:
+      labor_practices:
+        weight: 0.40
+        indicators:
+          employee_turnover:      { weight: 0.25, direction: lower_is_better }
+          gender_pay_gap:         { weight: 0.25, direction: lower_is_better }
+          training_hours:         { weight: 0.25, direction: higher_is_better }
+          injury_rate:            { weight: 0.25, direction: lower_is_better }
+
+      human_rights:
+        weight: 0.30
+        indicators:
+          supply_chain_audit:     { weight: 0.40, direction: higher_is_better }
+          human_rights_policy:    { weight: 0.35, direction: higher_is_better }
+          child_labor_incidents:  { weight: 0.25, direction: lower_is_better }
+
+      community:
+        weight: 0.30
+        indicators:
+          community_investment:   { weight: 0.40, direction: higher_is_better }
+          local_procurement_pct:  { weight: 0.35, direction: higher_is_better }
+          social_impact_programs: { weight: 0.25, direction: higher_is_better }
+
+  governance:
+    weight: 0.30
+    themes:
+      board_structure:
+        weight: 0.40
+        indicators:
+          board_independence_pct: { weight: 0.30, direction: higher_is_better }
+          women_on_board_pct:     { weight: 0.30, direction: higher_is_better }
+          ceo_chair_separation:   { weight: 0.20, direction: higher_is_better }
+          board_esg_expertise:    { weight: 0.20, direction: higher_is_better }
+
+      transparency:
+        weight: 0.35
+        indicators:
+          esg_reporting_quality:  { weight: 0.40, direction: higher_is_better }
+          audit_independence:     { weight: 0.35, direction: higher_is_better }
+          disclosure_score:       { weight: 0.25, direction: higher_is_better }
+
+      anti_corruption:
+        weight: 0.25
+        indicators:
+          anti_bribery_policy:    { weight: 0.40, direction: higher_is_better }
+          whistleblower_policy:   { weight: 0.35, direction: higher_is_better }
+          corruption_incidents:   { weight: 0.25, direction: lower_is_better }

@@ -1,40 +1,47 @@
-# Python
+﻿# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.egg-info/
-.eggs/
-build/
 dist/
-
-# Virtual environments
+build/
 .venv/
 venv/
-env/
 
-# Tooling caches
+# uv
+.uv/
+
+# Testing / typing
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
-.vscode/
 .idea/
+.vscode/
 *.swp
-.DS_Store
 
-# Environment variables (never commit secrets)
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Environment
 .env
 .env.local
 
-# Data files (don't commit large datasets)
-data/raw/*.csv
+# Data large files
 data/raw/*.parquet
-data/raw/*.json
-!data/raw/sample_*.csv
-!data/raw/README.md
+data/raw/*.csv
 
-# Streamlit
-.streamlit/secrets.toml
+# Logs / DB
+*.log
+*.db
+*.sqlite3
