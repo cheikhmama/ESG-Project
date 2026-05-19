@@ -48,13 +48,13 @@ col1, col2 = st.columns([3, 1])
 with col1:
     search = st.text_input(
         "",
-        placeholder="Rechercher une société par nom ou symbole…",
+        placeholder="Recherche",
         key="ent_search",
         label_visibility="collapsed",
     )
 with col2:
     sectors = ["Tous les secteurs"] + sorted({c.sector for c in COMPANIES.values()})
-    sector_f = st.selectbox("", sectors, key="ent_sector", label_visibility="collapsed")
+    sector_f = st.selectbox(" ", sectors, key="ent_sector", label_visibility="collapsed")
 
 # Apply filters
 filtered = {}

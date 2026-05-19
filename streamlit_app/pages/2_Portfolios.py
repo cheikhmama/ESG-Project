@@ -135,7 +135,14 @@ for item in portfolio_results:
                 xaxis=dict(gridcolor="rgba(255,255,255,0.04)", tickfont=dict(size=10)),
                 yaxis=dict(range=[0, 115], gridcolor="rgba(255,255,255,0.04)"),
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, use_container_width=True, config={
+                "modeBarButtonsToRemove": [
+                    "zoom2d", "pan2d", "select2d", "lasso2d",
+                    "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
+                    "hoverClosestCartesian", "hoverCompareCartesian", "toggleSpikelines",
+                ],
+                "displaylogo": False,
+            })
 
         # Actions
         btn1, btn2, _ = st.columns([2, 2, 8])
@@ -143,12 +150,7 @@ for item in portfolio_results:
             if st.button("Cloner", key=f"clone_{pdef['id']}", use_container_width=True):
                 st.session_state[f"show_clone_{pdef['id']}"] = True
         with btn2:
-            if st.button(
-                "Analyser",
-                key=f"audit_{pdef['id']}",
-                type="primary",
-                use_container_width=True,
-            ):
+            if st.button("Analyser", key=f"audit_{pdef['id']}", type="primary", use_container_width=True):
                 st.session_state["audit_portfolio"] = str(pdef["id"])
                 st.switch_page("pages/5_Explainability.py")
 

@@ -262,7 +262,14 @@ fig_cmp.update_layout(
     yaxis=dict(range=[0, 110], gridcolor="rgba(255,255,255,0.04)"),
     margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_cmp, use_container_width=True)
+st.plotly_chart(fig_cmp, use_container_width=True, config={
+    "modeBarButtonsToRemove": [
+        "zoom2d", "pan2d", "select2d", "lasso2d",
+        "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
+        "hoverClosestCartesian", "hoverCompareCartesian", "toggleSpikelines",
+    ],
+    "displaylogo": False,
+})
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 3 — Theme-level differences

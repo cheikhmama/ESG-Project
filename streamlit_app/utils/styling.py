@@ -175,26 +175,37 @@ footer { visibility: hidden; }
     line-height: 1.6;
 }
 
-/* Buttons */
+/* Buttons — neutral ghost style (like download / upload buttons) */
 .stButton > button {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: white;
-    border: none;
+    background: rgba(255,255,255,0.05);
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.13);
     border-radius: 8px;
     font-weight: 600;
     font-size: 0.85rem;
-    padding: 9px 20px;
+    padding: 8px 18px;
     letter-spacing: 0.01em;
-    transition: opacity 0.15s, transform 0.15s;
+    transition: all 0.15s;
 }
 .stButton > button:hover {
-    opacity: 0.88;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+    background: rgba(255,255,255,0.09);
+    border-color: rgba(255,255,255,0.22);
 }
 .stButton > button:focus {
-    box-shadow: 0 0 0 2px rgba(99,102,241,0.5);
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.4);
     outline: none;
+}
+/* Primary type — purple gradient accent */
+[data-testid="baseButton-primary"] {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 2px 12px rgba(99,102,241,0.3) !important;
+}
+[data-testid="baseButton-primary"]:hover {
+    opacity: 0.9 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 18px rgba(99,102,241,0.45) !important;
 }
 
 /* Metrics */

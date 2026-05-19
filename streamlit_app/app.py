@@ -79,18 +79,12 @@ best_ticker = max(all_scores, key=lambda t: all_scores[t])
 best_mc_ticker = max(FINANCIAL_METRICS, key=lambda t: FINANCIAL_METRICS[t]["market_cap"])
 avg_score = sum(all_scores.values()) / len(all_scores)
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 with col1:
     kpi_card("Sociétés Analysées", str(len(COMPANIES)), "Mauritanie")
 with col2:
     kpi_card("Meilleur Score ESG", f"{all_scores[best_ticker]:.1f}", COMPANIES[best_ticker].name)
 with col3:
-    kpi_card(
-        "Plus Haute Capitalisation",
-        f"${FINANCIAL_METRICS[best_mc_ticker]['market_cap']/1e6:.0f}M",
-        COMPANIES[best_mc_ticker].name,
-    )
-with col4:
     kpi_card("Moyenne Plateforme", f"{avg_score:.1f}", "Score ESG pondéré")
 
 st.markdown("<div style='margin:32px 0'></div>", unsafe_allow_html=True)
@@ -101,7 +95,7 @@ with col_f1:
     name_filter = st.text_input(
         "Rechercher une société",
         "",
-        placeholder="Rechercher par nom ou symbole…",
+        placeholder="Recherche",
         key="dash_name",
         label_visibility="collapsed",
     )
@@ -174,7 +168,14 @@ with c1:
         yaxis=dict(gridcolor="rgba(255,255,255,0.04)", range=[0, 105], tickfont=dict(size=11)),
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, use_container_width=True, config={
+        "modeBarButtonsToRemove": [
+            "zoom2d", "pan2d", "select2d", "lasso2d",
+            "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
+            "hoverClosestCartesian", "hoverCompareCartesian", "toggleSpikelines",
+        ],
+        "displaylogo": False,
+    })
 
 with c2:
     categories = ["Environnement", "Social", "Gouvernance"]
@@ -217,4 +218,10 @@ with c2:
         legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
         margin=dict(l=10, r=10, t=40, b=10),
     )
-    st.plotly_chart(fig_radar, use_container_width=True)
+    st.plotly_chart(fig_radar, use_container_width=True, config={
+        "modeBarButtonsToRemove": [
+            "zoom2d", "pan2d", "select2d", "lasso2d",
+            "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
+        ],
+        "displaylogo": False,
+    })

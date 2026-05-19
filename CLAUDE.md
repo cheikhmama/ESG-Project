@@ -185,19 +185,28 @@ pillars:
 **Exit criterion:** `default_v1.yaml` loads, validates, and produces a stable hash. A second copy with reordered keys produces the same hash.
 
 ### Phase 3 — Data ingestion pipeline
-**Goal:** Read the Kaggle ESG dataset and CDP/GRI samples into our canonical models.
+**Goal:** Read real official data from each company's published sources (annual reports, sustainability disclosures, official publications) into our canonical models.
+
+**Context:** The platform covers Mauritanian companies (SNIM, SOMELEC, MAURITEL, NEXT) using data extracted directly from their official annual reports and public disclosures — not third-party aggregators. Each company has its own source format (PDF, CSV, JSON). The abstract `Ingester` interface allows community contributors to add new companies or data formats without touching the engine.
 
 Tasks:
-1. Download the Kaggle alistairking dataset; commit a small sample (≤5 MB) to `tests/fixtures/`. Document the full download in `data/README.md`.
+1. Collect and commit structured data samples (≤5 MB total) extracted from official sources to `tests/fixtures/`. Document each source (company, report year, URL or file reference) in `data/README.md`.
+   - SNIM: annual activity report (e.g. `SNIM_Rapport_activite2024.pdf` → structured CSV/JSON extract)
+   - SOMELEC: financial and sustainability reports
+   - MAURITEL: RSE / annual report
+   - NEXT: annual report
 2. In `src/esg_data/ingestion/`:
-   - `kaggle_esg.py` — reads the Kaggle CSV, maps columns to our `Company` + `IndicatorValue` models.
-   - `cdp_parser.py` — JSON parser for CDP-format emissions disclosures.
-   - `gri_parser.py` — JSON parser for GRI sustainability reports.
-   - `base.py` — abstract `Ingester` interface for community-contributed parsers.
+   - `base.py` — abstract `Ingester` interface for community-contributed parsers. Any new company = a new class implementing this interface, zero engine changes.
+   - `snim_parser.py` — reads SNIM structured extract, maps fields to `Company` + `IndicatorValue` + `Emissions` models.
+   - `somelec_parser.py` — same for SOMELEC.
+   - `mauritel_parser.py` — same for MAURITEL.
+   - `next_parser.py` — same for NEXT.
+   - `cdp_parser.py` — JSON parser for CDP-format emissions disclosures (for future companies disclosing via CDP).
+   - `gri_parser.py` — JSON parser for GRI sustainability reports (for future companies using GRI standard).
 3. Every ingester writes to a canonical Parquet schema at `data/raw/companies.parquet`, `data/raw/indicators.parquet`, `data/raw/emissions.parquet`.
-4. Validation: reject rows with missing required fields, log warnings for low-confidence sources, never silently drop data.
+4. Validation: reject rows with missing required fields, log warnings for low-confidence sources, never silently drop data. Every ingested value carries `source` (report name + year), `confidence`, and `as_of_date`.
 
-**Exit criterion:** `uv run python -m esg_data.ingestion.kaggle_esg --input <csv> --output data/raw/` produces valid Parquet files. Tests verify the canonical schema is preserved.
+**Exit criterion:** `uv run python -m esg_data.ingestion.snim_parser --input data/raw/snim_2024.json --output data/raw/` produces valid Parquet files. Tests verify the canonical schema is preserved across all four company parsers.
 
 ### Phase 4 — Scoring engine (the heart of the platform)
 **Goal:** Pure, deterministic, reproducible scoring functions.
