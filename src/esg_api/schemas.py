@@ -51,9 +51,13 @@ class PortfolioScoreOut(BaseModel):
     portfolio_id: str
     name: str
     weighted_portfolio_score: float
-    total_financed_emissions: float
-    carbon_intensity: float
-    waci: float
+    total_financed_emissions: float  # tCO2e
+    carbon_intensity: float  # tCO2e / $M invested (portfolio footprint)
+    waci: float  # PCAF WACI — tCO2e / $M revenue, weighted by holding share
+    waci_coverage: float  # share of holdings with usable revenue, [0, 1]
+    carbon_to_value: float  # tCO2e / $M EVIC — distinct from WACI
+    pcaf_data_quality: float  # PCAF Data Quality 1.0-5.0 (lower is better)
+    pcaf_coverage: float  # share of holdings with data-quality info, [0, 1]
     total_investment: float
     holdings: list[HoldingOut]
 

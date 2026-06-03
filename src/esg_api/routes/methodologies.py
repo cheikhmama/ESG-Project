@@ -15,10 +15,7 @@ def get_current_methodology() -> MethodologyOut:
     """Return the active scoring methodology — version, weights, and hash."""
     meth = get_methodology()
     scores = get_scores()
-    pillar_weights = {
-        pillar_id: config.weight
-        for pillar_id, config in meth.pillars.items()
-    }
+    pillar_weights = {pillar_id: config.weight for pillar_id, config in meth.pillars.items()}
     return MethodologyOut(
         version=meth.version,
         name=meth.name,

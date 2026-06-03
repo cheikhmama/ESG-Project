@@ -16,7 +16,7 @@ from typing import Any
 from esg_core.models.methodology import Methodology
 
 
-def _canonical_dict(obj: Any) -> Any:  # noqa: ANN401
+def _canonical_dict(obj: Any) -> Any:
     """Recursively sort all dict keys for canonical JSON serialisation.
 
     Reproducibility: Python dict ordering is insertion-ordered, not sorted.

@@ -5,22 +5,22 @@ from __future__ import annotations
 import streamlit as st
 
 SECTOR_COLORS: dict[str, str] = {
-    "Mining & Metals":    "#ef4444",
-    "Utilities":          "#f97316",
+    "Mining & Metals": "#ef4444",
+    "Utilities": "#f97316",
     "Telecommunications": "#3b82f6",
-    "Technology":         "#22c55e",
+    "Technology": "#22c55e",
 }
 
 RISK_COLORS: dict[str, str] = {
-    "High":   "#ef4444",
+    "High": "#ef4444",
     "Medium": "#f59e0b",
-    "Low":    "#22c55e",
+    "Low": "#22c55e",
 }
 
 PILLAR_COLORS: dict[str, str] = {
     "environment": "#22c55e",
-    "social":      "#3b82f6",
-    "governance":  "#8b5cf6",
+    "social": "#3b82f6",
+    "governance": "#8b5cf6",
 }
 
 _COUNTRY_NAMES: dict[str, str] = {
@@ -369,12 +369,12 @@ def company_card(
                 <div>
                     <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;
                                 letter-spacing:0.09em;font-weight:600">Empreinte Carbone</div>
-                    <div style="font-weight:600;color:#cbd5e1;font-size:0.88rem;margin-top:3px">{carbon/1000:.1f}K tCO₂e</div>
+                    <div style="font-weight:600;color:#cbd5e1;font-size:0.88rem;margin-top:3px">{carbon / 1000:.1f}K tCO₂e</div>
                 </div>
                 <div>
                     <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;
                                 letter-spacing:0.09em;font-weight:600">Capitalisation</div>
-                    <div style="font-weight:600;color:#cbd5e1;font-size:0.88rem;margin-top:3px">${mc/1e6:.0f}M</div>
+                    <div style="font-weight:600;color:#cbd5e1;font-size:0.88rem;margin-top:3px">${mc / 1e6:.0f}M</div>
                 </div>
                 <div style="margin-left:auto">
                     <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;

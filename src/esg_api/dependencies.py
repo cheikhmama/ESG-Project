@@ -1,27 +1,23 @@
 """Shared FastAPI dependencies — data + scoring access.
 
-TODO Phase 3: replace COMPANIES/EMISSIONS imports with esg_data.repositories
-once the ingestion pipeline is implemented.
+Imports come from ``esg_data.fixtures`` (Layer 2). The Layer-3 API depends on
+the Layer-2 data layer per the four-layer architecture in CLAUDE.md §3.
+TODO Phase 3: swap ``esg_data.fixtures`` for ``esg_data.repositories`` once
+the real ingestion pipeline is implemented.
 """
 
 from __future__ import annotations
 
-import sys
 from functools import lru_cache
-from pathlib import Path
 
-_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))
-
-from streamlit_app.data.companies_data import (  # noqa: E402
+from esg_data.fixtures import (
     COMPANIES,
     EMISSIONS,
     FINANCIAL_METRICS,
     REFERENCE_PORTFOLIOS,
     RISK_LEVELS,
 )
-from streamlit_app.utils.scoring_engine import (  # noqa: E402
+from esg_data.services import (
     build_portfolio,
     compute_all_scores,
     compute_portfolio_score,
@@ -61,14 +57,14 @@ def get_reference_portfolios() -> list:  # type: ignore[type-arg]
 
 
 __all__ = [
-    "get_scores",
-    "get_companies",
-    "get_emissions",
-    "get_risk_levels",
-    "get_financial_metrics",
-    "get_reference_portfolios",
     "build_portfolio",
     "compute_portfolio_score",
+    "get_companies",
     "get_decomposition",
+    "get_emissions",
+    "get_financial_metrics",
     "get_methodology",
+    "get_reference_portfolios",
+    "get_risk_levels",
+    "get_scores",
 ]

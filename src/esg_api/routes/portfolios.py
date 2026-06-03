@@ -41,19 +41,27 @@ def _build_portfolio_out(pdef: dict, scores: dict) -> PortfolioScoreOut:  # type
         total_financed_emissions=round(carbon.total_financed_emissions, 2),
         carbon_intensity=round(carbon.carbon_intensity, 4),
         waci=round(carbon.waci, 4),
+        waci_coverage=round(carbon.waci_coverage, 4),
+        carbon_to_value=round(carbon.carbon_to_value, 4),
+        pcaf_data_quality=round(carbon.data_quality.weighted_pcaf_score, 2),
+        pcaf_coverage=round(carbon.data_quality.coverage, 4),
         total_investment=portfolio.total_investment_value,
         holdings=holdings_out,
     )
 
 
-@router.get("", response_model=list[PortfolioScoreOut], summary="All reference portfolios with scores")
+@router.get(
+    "", response_model=list[PortfolioScoreOut], summary="All reference portfolios with scores"
+)
 def list_portfolios() -> list[PortfolioScoreOut]:
     """Return all reference portfolios with their ESG and carbon metrics."""
     scores = get_scores()
     return [_build_portfolio_out(pdef, scores) for pdef in get_reference_portfolios()]
 
 
-@router.get("/{portfolio_id}/score", response_model=PortfolioScoreOut, summary="Score for one portfolio")
+@router.get(
+    "/{portfolio_id}/score", response_model=PortfolioScoreOut, summary="Score for one portfolio"
+)
 def get_portfolio_score(portfolio_id: str) -> PortfolioScoreOut:
     """Return the ESG score and carbon footprint for a specific reference portfolio."""
     portfolios = {str(p["id"]): p for p in get_reference_portfolios()}

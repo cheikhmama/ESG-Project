@@ -1,38 +1,34 @@
 """Page 4 — Comparaison côte à côte de deux portefeuilles."""
 
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))
-
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(page_title="Comparaison — ESG Platform", page_icon="◆", layout="wide")
 
-from streamlit_app.utils.styling import apply_global_styles, score_color, PILLAR_COLORS
-from streamlit_app.data.companies_data import COMPANIES, EMISSIONS, REFERENCE_PORTFOLIOS
+from esg_data.fixtures import COMPANIES, REFERENCE_PORTFOLIOS
+from streamlit_app.utils.styling import apply_global_styles
 
 apply_global_styles()
 
 
 @st.cache_data(ttl=3600)
 def _get_scored_portfolios():  # type: ignore[no-untyped-def]
-    from streamlit_app.utils.scoring_engine import (
-        compute_all_scores,
+    from esg_data.services import (
         build_portfolio,
+        compute_all_scores,
         compute_portfolio_score,
     )
+
     sd = compute_all_scores()
     out: dict[str, dict] = {}
     for pdef in REFERENCE_PORTFOLIOS:
         port = build_portfolio(pdef)  # type: ignore[arg-type]
         res = compute_portfolio_score(port, sd["company_scores"], sd["methodology"])
         out[str(pdef["name"])] = {
-            "port": port, "result": res, "company_scores": sd["company_scores"],
+            "port": port,
+            "result": res,
+            "company_scores": sd["company_scores"],
         }
     return out, sd
 
@@ -48,8 +44,10 @@ for up in st.session_state.get("user_portfolios", []):
     if not holdings_raw:
         continue
     from datetime import date
+
     from esg_core.models.portfolio import Holding, Portfolio
-    from streamlit_app.utils.scoring_engine import compute_portfolio_score
+    from esg_data.services import compute_portfolio_score
+
     port_obj = Portfolio(
         id=uid,
         name=up["name"],
@@ -81,7 +79,9 @@ st.markdown(
 )
 
 if len(options) < 2:
-    st.info("Créez au moins deux portefeuilles pour les comparer. Utilisez les portefeuilles de référence ou créez les vôtres dans Mes Portefeuilles.")
+    st.info(
+        "Créez au moins deux portefeuilles pour les comparer. Utilisez les portefeuilles de référence ou créez les vôtres dans Mes Portefeuilles."
+    )
     st.stop()
 
 # ── Selectors ──────────────────────────────────────────────────────────────────
@@ -126,6 +126,7 @@ wps_b = ps_b.weighted_portfolio_score
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("<div class='section-header'>Résumé comparatif</div>", unsafe_allow_html=True)
 
+
 def _delta_str(val_a: float, val_b: float, higher_is_better: bool = True) -> str:
     delta = val_a - val_b
     if abs(delta) < 0.05:
@@ -151,14 +152,14 @@ kpi_rows = [
     },
     {
         "Indicateur": "Capital Total",
-        "Portefeuille A": f"${port_a.total_investment_value/1000:.0f}K",
-        "Portefeuille B": f"${port_b.total_investment_value/1000:.0f}K",
+        "Portefeuille A": f"${port_a.total_investment_value / 1000:.0f}K",
+        "Portefeuille B": f"${port_b.total_investment_value / 1000:.0f}K",
         "_delta": "—",
     },
     {
         "Indicateur": "Émissions Financées",
-        "Portefeuille A": f"{carbon_a.total_financed_emissions/1000:.1f}K tCO₂e",
-        "Portefeuille B": f"{carbon_b.total_financed_emissions/1000:.1f}K tCO₂e",
+        "Portefeuille A": f"{carbon_a.total_financed_emissions / 1000:.1f}K tCO₂e",
+        "Portefeuille B": f"{carbon_b.total_financed_emissions / 1000:.1f}K tCO₂e",
         "_delta": _delta_str(
             carbon_a.total_financed_emissions,
             carbon_b.total_financed_emissions,
@@ -169,13 +170,23 @@ kpi_rows = [
         "Indicateur": "Intensité Carbone",
         "Portefeuille A": f"{carbon_a.carbon_intensity:.1f} tCO₂e/$M",
         "Portefeuille B": f"{carbon_b.carbon_intensity:.1f} tCO₂e/$M",
-        "_delta": _delta_str(carbon_a.carbon_intensity, carbon_b.carbon_intensity, higher_is_better=False),
+        "_delta": _delta_str(
+            carbon_a.carbon_intensity, carbon_b.carbon_intensity, higher_is_better=False
+        ),
     },
     {
-        "Indicateur": "WACI",
+        "Indicateur": "WACI (tCO₂e/$M CA)",
         "Portefeuille A": f"{carbon_a.waci:.1f}",
         "Portefeuille B": f"{carbon_b.waci:.1f}",
         "_delta": _delta_str(carbon_a.waci, carbon_b.waci, higher_is_better=False),
+    },
+    {
+        "Indicateur": "Carbon-to-Value (tCO₂e/$M EVIC)",
+        "Portefeuille A": f"{carbon_a.carbon_to_value:.1f}",
+        "Portefeuille B": f"{carbon_b.carbon_to_value:.1f}",
+        "_delta": _delta_str(
+            carbon_a.carbon_to_value, carbon_b.carbon_to_value, higher_is_better=False
+        ),
     },
 ]
 
@@ -217,6 +228,7 @@ st.markdown("<div class='section-header'>Scores par Pilier</div>", unsafe_allow_
 pillar_labels = {"environment": "Environnement", "social": "Social", "governance": "Gouvernance"}
 pillar_ids = list(pillar_labels.keys())
 
+
 def _portfolio_pillar_avg(port, cs_dict: dict, pillar_id: str) -> float:  # type: ignore[no-untyped-def]
     total_weight = 0.0
     weighted_score = 0.0
@@ -237,20 +249,28 @@ vals_b = [_portfolio_pillar_avg(port_b, company_scores_all, pid) for pid in pill
 labels = [pillar_labels[pid] for pid in pillar_ids]
 
 fig_cmp = go.Figure()
-fig_cmp.add_trace(go.Bar(
-    name=choice_a, x=labels, y=vals_a,
-    marker=dict(color="#6366f1", opacity=0.85),
-    text=[f"{v:.1f}" for v in vals_a],
-    textposition="outside",
-    textfont=dict(size=10, color="#94a3b8"),
-))
-fig_cmp.add_trace(go.Bar(
-    name=choice_b, x=labels, y=vals_b,
-    marker=dict(color="#22c55e", opacity=0.85),
-    text=[f"{v:.1f}" for v in vals_b],
-    textposition="outside",
-    textfont=dict(size=10, color="#94a3b8"),
-))
+fig_cmp.add_trace(
+    go.Bar(
+        name=choice_a,
+        x=labels,
+        y=vals_a,
+        marker=dict(color="#6366f1", opacity=0.85),
+        text=[f"{v:.1f}" for v in vals_a],
+        textposition="outside",
+        textfont=dict(size=10, color="#94a3b8"),
+    )
+)
+fig_cmp.add_trace(
+    go.Bar(
+        name=choice_b,
+        x=labels,
+        y=vals_b,
+        marker=dict(color="#22c55e", opacity=0.85),
+        text=[f"{v:.1f}" for v in vals_b],
+        textposition="outside",
+        textfont=dict(size=10, color="#94a3b8"),
+    )
+)
 fig_cmp.update_layout(
     barmode="group",
     height=300,
@@ -262,14 +282,26 @@ fig_cmp.update_layout(
     yaxis=dict(range=[0, 110], gridcolor="rgba(255,255,255,0.04)"),
     margin=dict(l=0, r=0, t=10, b=0),
 )
-st.plotly_chart(fig_cmp, use_container_width=True, config={
-    "modeBarButtonsToRemove": [
-        "zoom2d", "pan2d", "select2d", "lasso2d",
-        "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
-        "hoverClosestCartesian", "hoverCompareCartesian", "toggleSpikelines",
-    ],
-    "displaylogo": False,
-})
+st.plotly_chart(
+    fig_cmp,
+    use_container_width=True,
+    config={
+        "modeBarButtonsToRemove": [
+            "zoom2d",
+            "pan2d",
+            "select2d",
+            "lasso2d",
+            "zoomIn2d",
+            "zoomOut2d",
+            "autoScale2d",
+            "resetScale2d",
+            "hoverClosestCartesian",
+            "hoverCompareCartesian",
+            "toggleSpikelines",
+        ],
+        "displaylogo": False,
+    },
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 3 — Theme-level differences
@@ -300,13 +332,15 @@ for theme in all_themes:
     sb = themes_b.get(theme, 0.0)
     delta = sa - sb
     direction = "A supérieur" if delta > 0.5 else ("B supérieur" if delta < -0.5 else "Équivalent")
-    theme_rows.append({
-        "Thème":          theme,
-        choice_a:         f"{sa:.1f}",
-        choice_b:         f"{sb:.1f}",
-        "Écart (A − B)":  f"{delta:+.1f}",
-        "Avantage":        direction,
-    })
+    theme_rows.append(
+        {
+            "Thème": theme,
+            choice_a: f"{sa:.1f}",
+            choice_b: f"{sb:.1f}",
+            "Écart (A − B)": f"{delta:+.1f}",
+            "Avantage": direction,
+        }
+    )
 
 theme_df = pd.DataFrame(theme_rows)
 st.dataframe(theme_df, use_container_width=True, hide_index=True)

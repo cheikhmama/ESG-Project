@@ -1,12 +1,5 @@
 """Dashboard principal — vue d'ensemble ESG Mauritanie."""
 
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))
-
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -17,18 +10,17 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-from streamlit_app.utils.styling import (
-    apply_global_styles,
-    company_card,
-    kpi_card,
-    score_color,
-    PILLAR_COLORS,
-)
-from streamlit_app.data.companies_data import (
+from esg_data.fixtures import (
     COMPANIES,
     EMISSIONS,
     FINANCIAL_METRICS,
     RISK_LEVELS,
+)
+from streamlit_app.utils.styling import (
+    PILLAR_COLORS,
+    apply_global_styles,
+    company_card,
+    kpi_card,
 )
 
 apply_global_styles()
@@ -36,7 +28,8 @@ apply_global_styles()
 
 @st.cache_data(ttl=3600, show_spinner="Calcul des scores ESG en cours…")
 def _load_scores():  # type: ignore[no-untyped-def]
-    from streamlit_app.utils.scoring_engine import compute_all_scores
+    from esg_data.services import compute_all_scores
+
     return compute_all_scores()
 
 
@@ -101,14 +94,20 @@ with col_f1:
     )
 with col_f2:
     sectors = ["Tous les secteurs"] + sorted({c.sector for c in COMPANIES.values()})
-    sector_filter = st.selectbox("Secteur", sectors, key="dash_sector", label_visibility="collapsed")
+    sector_filter = st.selectbox(
+        "Secteur", sectors, key="dash_sector", label_visibility="collapsed"
+    )
 
 # Apply filters
 filtered: dict[str, object] = {}
 for ticker, co in COMPANIES.items():
     if sector_filter != "Tous les secteurs" and co.sector != sector_filter:
         continue
-    if name_filter and name_filter.lower() not in co.name.lower() and name_filter.lower() not in ticker.lower():
+    if (
+        name_filter
+        and name_filter.lower() not in co.name.lower()
+        and name_filter.lower() not in ticker.lower()
+    ):
         continue
     filtered[ticker] = co
 
@@ -145,18 +144,24 @@ c1, c2 = st.columns(2)
 with c1:
     fig_bar = go.Figure()
     for pillar_id, color in PILLAR_COLORS.items():
-        label_map = {"environment": "Environnement", "social": "Social", "governance": "Gouvernance"}
+        label_map = {
+            "environment": "Environnement",
+            "social": "Social",
+            "governance": "Gouvernance",
+        }
         values = []
         for t in tickers_list:
             ps = company_scores[t].pillar(pillar_id)
             values.append(ps.score if ps else 0.0)
-        fig_bar.add_trace(go.Bar(
-            name=label_map.get(pillar_id, pillar_id.title()),
-            x=tickers_list,
-            y=values,
-            marker_color=color,
-            marker_opacity=0.85,
-        ))
+        fig_bar.add_trace(
+            go.Bar(
+                name=label_map.get(pillar_id, pillar_id.title()),
+                x=tickers_list,
+                y=values,
+                marker_color=color,
+                marker_opacity=0.85,
+            )
+        )
     fig_bar.update_layout(
         barmode="group",
         title=dict(text="Scores par Pilier", font=dict(size=13, color="#94a3b8")),
@@ -168,22 +173,36 @@ with c1:
         yaxis=dict(gridcolor="rgba(255,255,255,0.04)", range=[0, 105], tickfont=dict(size=11)),
         margin=dict(l=0, r=0, t=40, b=0),
     )
-    st.plotly_chart(fig_bar, use_container_width=True, config={
-        "modeBarButtonsToRemove": [
-            "zoom2d", "pan2d", "select2d", "lasso2d",
-            "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
-            "hoverClosestCartesian", "hoverCompareCartesian", "toggleSpikelines",
-        ],
-        "displaylogo": False,
-    })
+    st.plotly_chart(
+        fig_bar,
+        use_container_width=True,
+        config={
+            "modeBarButtonsToRemove": [
+                "zoom2d",
+                "pan2d",
+                "select2d",
+                "lasso2d",
+                "zoomIn2d",
+                "zoomOut2d",
+                "autoScale2d",
+                "resetScale2d",
+                "hoverClosestCartesian",
+                "hoverCompareCartesian",
+                "toggleSpikelines",
+            ],
+            "displaylogo": False,
+        },
+    )
 
 with c2:
     categories = ["Environnement", "Social", "Gouvernance"]
     fig_radar = go.Figure()
     colors = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444"]
     fills = [
-        "rgba(99,102,241,0.15)", "rgba(34,197,94,0.15)",
-        "rgba(245,158,11,0.15)", "rgba(239,68,68,0.15)",
+        "rgba(99,102,241,0.15)",
+        "rgba(34,197,94,0.15)",
+        "rgba(245,158,11,0.15)",
+        "rgba(239,68,68,0.15)",
     ]
     for idx, t in enumerate(tickers_list):
         ps_env = company_scores[t].pillar("environment")
@@ -194,19 +213,22 @@ with c2:
             ps_soc.score if ps_soc else 0,
             ps_gov.score if ps_gov else 0,
         ]
-        fig_radar.add_trace(go.Scatterpolar(
-            r=vals + [vals[0]],
-            theta=categories + [categories[0]],
-            name=t,
-            line=dict(color=colors[idx], width=2),
-            fill="toself",
-            fillcolor=fills[idx],
-        ))
+        fig_radar.add_trace(
+            go.Scatterpolar(
+                r=vals + [vals[0]],
+                theta=categories + [categories[0]],
+                name=t,
+                line=dict(color=colors[idx], width=2),
+                fill="toself",
+                fillcolor=fills[idx],
+            )
+        )
     fig_radar.update_layout(
         polar=dict(
             bgcolor="rgba(0,0,0,0)",
             radialaxis=dict(
-                visible=True, range=[0, 100],
+                visible=True,
+                range=[0, 100],
                 gridcolor="rgba(255,255,255,0.08)",
                 tickfont=dict(size=9, color="#475569"),
             ),
@@ -218,10 +240,20 @@ with c2:
         legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
         margin=dict(l=10, r=10, t=40, b=10),
     )
-    st.plotly_chart(fig_radar, use_container_width=True, config={
-        "modeBarButtonsToRemove": [
-            "zoom2d", "pan2d", "select2d", "lasso2d",
-            "zoomIn2d", "zoomOut2d", "autoScale2d", "resetScale2d",
-        ],
-        "displaylogo": False,
-    })
+    st.plotly_chart(
+        fig_radar,
+        use_container_width=True,
+        config={
+            "modeBarButtonsToRemove": [
+                "zoom2d",
+                "pan2d",
+                "select2d",
+                "lasso2d",
+                "zoomIn2d",
+                "zoomOut2d",
+                "autoScale2d",
+                "resetScale2d",
+            ],
+            "displaylogo": False,
+        },
+    )
