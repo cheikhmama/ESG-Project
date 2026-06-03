@@ -25,6 +25,16 @@ class Company(BaseModel, frozen=True):
         ge=0.0,
         description="Enterprise Value Including Cash (EVIC) in USD — used for PCAF carbon attribution",
     )
+    revenue: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Annual revenue in USD. Required for the PCAF Weighted Average "
+            "Carbon Intensity (WACI), whose denominator is revenue. Distinct "
+            "from EVIC, which is used for emissions attribution and "
+            "carbon-to-value ratios."
+        ),
+    )
 
     def __str__(self) -> str:
         return f"{self.name} ({self.ticker})"

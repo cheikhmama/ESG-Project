@@ -9,10 +9,6 @@ ordering-independence.
 
 from __future__ import annotations
 
-import hashlib
-import json
-from datetime import datetime
-
 import numpy as np
 
 from esg_core.models.methodology import (
@@ -29,19 +25,10 @@ from esg_core.scoring.missing_data import apply_missing_data_strategy
 from esg_core.scoring.normalize import normalize_percentile
 
 
-def _inputs_hash(data: dict[str, float | None]) -> str:
-    """SHA-256 of a sorted JSON representation of the input data dict."""
-    serialised = json.dumps(
-        {k: v for k, v in sorted(data.items())},
-        ensure_ascii=True,
-        separators=(",", ":"),
-    )
-    return hashlib.sha256(serialised.encode("utf-8")).hexdigest()
-
-
 def aggregate_theme(
     indicator_values: dict[str, float | None],
     peer_matrix: dict[str, list[float]],
+    sector_peer_matrix: dict[str, list[float]],
     theme_config: ThemeConfig,
     strategy: MissingDataStrategy,
 ) -> ThemeScore | None:
@@ -49,7 +36,14 @@ def aggregate_theme(
 
     Args:
         indicator_values: Map of indicator_id → raw value (None if missing).
-        peer_matrix: Map of indicator_id → list of peer raw values (for normalisation).
+        peer_matrix: Map of indicator_id → list of raw values from the full
+            peer group, used for normalisation and as the global-median
+            fallback when sector peers are too few.
+        sector_peer_matrix: Map of indicator_id → list of raw values from
+            same-sector peers only. Used by the INDUSTRY_MEDIAN strategy to
+            produce a sector-specific imputation. May be empty when the
+            target's sector has too few peers — in which case the strategy
+            falls back to the global median.
         theme_config: Configuration for this theme from the Methodology.
         strategy: Missing-data strategy from the Methodology.
 
@@ -65,25 +59,27 @@ def aggregate_theme(
         ind_cfg = theme_config.indicators[ind_id]
         raw = indicator_values.get(ind_id)
         peers = np.array(peer_matrix.get(ind_id, []), dtype=np.float64)
+        sector_peers = np.array(sector_peer_matrix.get(ind_id, []), dtype=np.float64)
 
         if raw is None:
-            peer_normalised = (
-                np.array(
-                    [normalize_percentile(float(p), peers, ind_cfg.direction) for p in peers],
-                    dtype=np.float64,
-                )
-                if len(peers) > 0
-                else np.array([], dtype=np.float64)
+            sub = apply_missing_data_strategy(
+                strategy,
+                peers,
+                sector_peers,
+                ind_cfg.direction,
             )
-            sub = apply_missing_data_strategy(strategy, peer_normalised, ind_cfg.direction)
             if sub is None:
                 if strategy == MissingDataStrategy.PROPAGATE_NULL:
                     return None
                 # EXCLUDE_INDICATOR — skip weight
                 continue
-            normalised = sub
+            normalised, quality_flag = sub
         else:
-            normalised = normalize_percentile(float(raw), peers, ind_cfg.direction)
+            normalised, quality_flag = normalize_percentile(
+                float(raw),
+                peers,
+                ind_cfg.direction,
+            )
 
         active_weight_total += ind_cfg.weight
         indicator_scores.append(
@@ -93,6 +89,7 @@ def aggregate_theme(
                 normalized_value=normalised,
                 weight=ind_cfg.weight,
                 weighted_contribution=ind_cfg.weight * normalised,
+                quality_flag=quality_flag,
             )
         )
 
@@ -109,6 +106,7 @@ def aggregate_theme(
                 normalized_value=s.normalized_value,
                 weight=s.weight * scale,
                 weighted_contribution=s.weight * scale * s.normalized_value,
+                quality_flag=s.quality_flag,
             )
             for s in indicator_scores
         ]
@@ -130,6 +128,7 @@ def aggregate_pillar(
     pillar_config: PillarConfig,
     all_indicator_values: dict[str, float | None],
     all_peer_matrix: dict[str, dict[str, list[float]]],
+    all_sector_peer_matrix: dict[str, dict[str, list[float]]],
     strategy: MissingDataStrategy,
 ) -> PillarScore | None:
     """Aggregate all themes within a pillar into a PillarScore.
@@ -138,7 +137,11 @@ def aggregate_pillar(
         pillar_id: Identifier for this pillar, e.g. 'environment'.
         pillar_config: Configuration for this pillar.
         all_indicator_values: Flat map of indicator_id → raw value.
-        all_peer_matrix: Nested map theme_id → indicator_id → [peer values].
+        all_peer_matrix: Nested map theme_id → indicator_id → [peer values]
+            across the full peer group.
+        all_sector_peer_matrix: Same shape as ``all_peer_matrix`` but
+            restricted to peers in the target company's sector. Used by the
+            INDUSTRY_MEDIAN strategy.
         strategy: Missing-data strategy from the Methodology.
 
     Returns:
@@ -152,8 +155,15 @@ def aggregate_pillar(
     for theme_id in sorted(pillar_config.themes.keys()):
         theme_cfg = pillar_config.themes[theme_id]
         peer_matrix = all_peer_matrix.get(theme_id, {})
+        sector_peer_matrix = all_sector_peer_matrix.get(theme_id, {})
 
-        ts = aggregate_theme(all_indicator_values, peer_matrix, theme_cfg, strategy)
+        ts = aggregate_theme(
+            all_indicator_values,
+            peer_matrix,
+            sector_peer_matrix,
+            theme_cfg,
+            strategy,
+        )
 
         if ts is None:
             if strategy == MissingDataStrategy.PROPAGATE_NULL:

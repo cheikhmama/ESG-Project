@@ -1,14 +1,5 @@
 """Page 3 — Gestion des portefeuilles personnels."""
 
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))
-
-import csv
-import io
 import json
 import uuid
 from datetime import date
@@ -18,15 +9,16 @@ import streamlit as st
 
 st.set_page_config(page_title="Mes Portefeuilles — ESG Platform", page_icon="◆", layout="wide")
 
-from streamlit_app.utils.styling import apply_global_styles, score_color
-from streamlit_app.data.companies_data import COMPANIES, RISK_LEVELS
+from esg_data.fixtures import COMPANIES, RISK_LEVELS
+from streamlit_app.utils.styling import apply_global_styles
 
 apply_global_styles()
 
 
 @st.cache_data(ttl=3600)
 def _get_scores():  # type: ignore[no-untyped-def]
-    from streamlit_app.utils.scoring_engine import compute_all_scores
+    from esg_data.services import compute_all_scores
+
     return compute_all_scores()
 
 
@@ -53,7 +45,6 @@ tab_create, tab_import, tab_list = st.tabs(["Créer", "Importer", "Mes portefeui
 
 # ── TAB 1 — Création manuelle ──────────────────────────────────────────────────
 with tab_create:
-
     # CSS spécifique à cet onglet
     st.markdown(
         """
@@ -148,12 +139,14 @@ with tab_create:
         unsafe_allow_html=True,
     )
     portfolio_name = st.text_input(
-        "Nom", placeholder="Ex : Portefeuille ESG Mauritanie 2026",
-        key="cp_name", label_visibility="collapsed",
+        "Nom",
+        placeholder="Ex : Portefeuille ESG Mauritanie 2026",
+        key="cp_name",
+        label_visibility="collapsed",
     )
 
     # ── Colonnes partagées (header + rows utilisent les mêmes proportions) ──────
-    _COLS = [0.28, 3, 1.8, 3, 0.4]   # badge | société | secteur | montant+devise | ×
+    _COLS = [0.28, 3, 1.8, 3, 0.4]  # badge | société | secteur | montant+devise | ×
     st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
 
     # Header "Positions" + bouton "+" — layout indépendant, titre à gauche / + à droite
@@ -210,8 +203,10 @@ with tab_create:
             )
         with c_co:
             company_name = st.selectbox(
-                "Société", options=company_options,
-                key=f"pos_{pid}_company", label_visibility="collapsed",
+                "Société",
+                options=company_options,
+                key=f"pos_{pid}_company",
+                label_visibility="collapsed",
             )
 
         is_selected = company_name != _PLACEHOLDER
@@ -221,14 +216,20 @@ with tab_create:
         # Force session state so the disabled field always reflects current company choice
         st.session_state[f"pos_{pid}_sec"] = sector
         with c_sec:
-            st.text_input("Secteur", disabled=True, label_visibility="collapsed", key=f"pos_{pid}_sec")
+            st.text_input(
+                "Secteur", disabled=True, label_visibility="collapsed", key=f"pos_{pid}_sec"
+            )
         with c_inv:
             sub_amt, sub_cur = st.columns([3, 1])
             with sub_amt:
                 inv_value = st.number_input(
-                    "Montant", min_value=1_000.0, max_value=10_000_000.0,
-                    value=100_000.0, step=10_000.0,
-                    key=f"pos_{pid}_inv", label_visibility="collapsed",
+                    "Montant",
+                    min_value=1_000.0,
+                    max_value=10_000_000.0,
+                    value=100_000.0,
+                    step=10_000.0,
+                    key=f"pos_{pid}_inv",
+                    label_visibility="collapsed",
                 )
             with sub_cur:
                 _cur_key = f"pos_{pid}_cur_val"
@@ -236,7 +237,11 @@ with tab_create:
                     st.session_state[_cur_key] = "USD"
                 _cur_val = st.session_state[_cur_key]
                 st.markdown('<div class="cur-badge"></div>', unsafe_allow_html=True)
-                if st.button(_cur_val, key=f"pos_{pid}_cur_btn", help="Cliquer pour changer la devise (USD → EUR → MRU)"):
+                if st.button(
+                    _cur_val,
+                    key=f"pos_{pid}_cur_btn",
+                    help="Cliquer pour changer la devise (USD → EUR → MRU)",
+                ):
                     _idx = _CURRENCIES.index(_cur_val)
                     st.session_state[_cur_key] = _CURRENCIES[(_idx + 1) % len(_CURRENCIES)]
                 currency = st.session_state[_cur_key]
@@ -248,12 +253,14 @@ with tab_create:
                 st.markdown("</div>", unsafe_allow_html=True)
 
         if is_selected:
-            holdings_data.append({
-                "company_name": company_name,
-                "ticker": ticker,
-                "investment_value": inv_value,
-                "currency": currency,
-            })
+            holdings_data.append(
+                {
+                    "company_name": company_name,
+                    "ticker": ticker,
+                    "investment_value": inv_value,
+                    "currency": currency,
+                }
+            )
 
     if to_remove is not None:
         st.session_state["pos_ids"].remove(to_remove)
@@ -283,7 +290,9 @@ with tab_create:
 
     # ── Bouton créer ───────────────────────────────────────────────────────────
     st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
-    if st.button("Créer le portefeuille", key="cp_submit", type="primary", use_container_width=True):
+    if st.button(
+        "Créer le portefeuille", key="cp_submit", type="primary", use_container_width=True
+    ):
         n_empty = len(st.session_state["pos_ids"]) - len(holdings_data)
         if not portfolio_name.strip():
             st.error("Le nom du portefeuille est obligatoire.")
@@ -291,7 +300,9 @@ with tab_create:
             st.error("Veuillez sélectionner au moins une société avant de créer.")
         else:
             if n_empty > 0:
-                st.info(f"{n_empty} position(s) sans société ignorée(s) — portefeuille créé avec {len(holdings_data)} position(s).")
+                st.info(
+                    f"{n_empty} position(s) sans société ignorée(s) — portefeuille créé avec {len(holdings_data)} position(s)."
+                )
             total_inv = sum(h["investment_value"] for h in holdings_data)
             valid = [h for h in holdings_data if h["ticker"] in COMPANIES]
             if not valid:
@@ -324,16 +335,20 @@ with tab_create:
                     <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);
                                 border-radius:10px;padding:16px 20px;margin-top:12px">
                         <div style="color:#22c55e;font-weight:700;margin-bottom:8px">
-                            Portefeuille « {new_port['name']} » créé — consultez l'onglet Mes portefeuilles
+                            Portefeuille « {
+                        new_port["name"]
+                    } » créé — consultez l'onglet Mes portefeuilles
                         </div>
                         <div style="font-size:0.83rem;color:#94a3b8;line-height:1.9">
                             {len(port_holdings)} position(s) &nbsp;·&nbsp;
                             Capital total : <b style="color:#e2e8f0">${total_inv:,.0f}</b><br>
-                            {"".join(
-                                f"<span style='margin-right:14px'>{h['company_name'].split()[0]} "
-                                f"<b style='color:#6366f1'>{h['weight']*100:.1f}%</b></span>"
-                                for h in port_holdings
-                            )}
+                            {
+                        "".join(
+                            f"<span style='margin-right:14px'>{h['company_name'].split()[0]} "
+                            f"<b style='color:#6366f1'>{h['weight'] * 100:.1f}%</b></span>"
+                            for h in port_holdings
+                        )
+                    }
                         </div>
                     </div>
                     """,
@@ -342,7 +357,9 @@ with tab_create:
 
 # ── TAB 2 — Import ─────────────────────────────────────────────────────────────
 with tab_import:
-    st.markdown("<div class='section-header'>Importer un portefeuille</div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='section-header'>Importer un portefeuille</div>", unsafe_allow_html=True
+    )
 
     # Format card + template download
     col_info, col_dl = st.columns([3, 1])
@@ -414,18 +431,22 @@ with tab_import:
                 for _, row in df_import.iterrows():
                     match_ticker = None
                     for t, co in COMPANIES.items():
-                        if (co.isin == str(row["isin_code"])
-                                or co.name.lower() == str(row["company_name"]).lower()):
+                        if (
+                            co.isin == str(row["isin_code"])
+                            or co.name.lower() == str(row["company_name"]).lower()
+                        ):
                             match_ticker = t
                             break
                     if match_ticker is None:
                         errors_imp.append(str(row["company_name"]))
                     else:
-                        matched.append({
-                            "ticker": match_ticker,
-                            "company_name": COMPANIES[match_ticker].name,
-                            "investment_value": float(row["investment_value"]),
-                        })
+                        matched.append(
+                            {
+                                "ticker": match_ticker,
+                                "company_name": COMPANIES[match_ticker].name,
+                                "investment_value": float(row["investment_value"]),
+                            }
+                        )
 
                 # Unrecognised rows
                 if errors_imp:
@@ -440,9 +461,7 @@ with tab_import:
                     # ── Preview ────────────────────────────────────────────
                     total_inv = sum(float(h["investment_value"]) for h in matched)
                     port_holdings = [
-                        {**h,
-                         "weight": float(h["investment_value"]) / total_inv,
-                         "currency": "USD"}
+                        {**h, "weight": float(h["investment_value"]) / total_inv, "currency": "USD"}
                         for h in matched
                     ]
 
@@ -456,14 +475,16 @@ with tab_import:
                         f"</div>",
                         unsafe_allow_html=True,
                     )
-                    preview_df = pd.DataFrame([
-                        {
-                            "Société":          h["company_name"],
-                            "Montant investi":  f"${float(h['investment_value']):,.0f}",
-                            "Poids":            f"{float(h['weight']) * 100:.1f}%",
-                        }
-                        for h in port_holdings
-                    ])
+                    preview_df = pd.DataFrame(
+                        [
+                            {
+                                "Société": h["company_name"],
+                                "Montant investi": f"${float(h['investment_value']):,.0f}",
+                                "Poids": f"{float(h['weight']) * 100:.1f}%",
+                            }
+                            for h in port_holdings
+                        ]
+                    )
                     st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
                     # ── Name + create ──────────────────────────────────────
@@ -486,14 +507,16 @@ with tab_import:
                         use_container_width=True,
                         disabled=not import_name.strip(),
                     ):
-                        st.session_state["user_portfolios"].append({
-                            "id": str(uuid.uuid4())[:8],
-                            "name": import_name.strip(),
-                            "holdings": port_holdings,
-                            "currency": "USD",
-                            "created_at": date.today().isoformat(),
-                            "total_investment": total_inv,
-                        })
+                        st.session_state["user_portfolios"].append(
+                            {
+                                "id": str(uuid.uuid4())[:8],
+                                "name": import_name.strip(),
+                                "holdings": port_holdings,
+                                "currency": "USD",
+                                "created_at": date.today().isoformat(),
+                                "total_investment": total_inv,
+                            }
+                        )
                         st.markdown(
                             f"<div style='background:rgba(34,197,94,0.08);"
                             f"border:1px solid rgba(34,197,94,0.25);border-radius:10px;"
@@ -526,8 +549,8 @@ with tab_list:
             holdings = pf["holdings"]
             total_inv = pf["total_investment"]
             weighted_esg = sum(
-                h["weight"] * (company_scores[h["ticker"]].final_score
-                               if h["ticker"] in company_scores else 0)
+                h["weight"]
+                * (company_scores[h["ticker"]].final_score if h["ticker"] in company_scores else 0)
                 for h in holdings
             )
 
@@ -543,20 +566,21 @@ with tab_list:
                 for h in holdings:
                     t = h["ticker"]
                     cs = company_scores.get(t)
-                    rows.append({
-                        "Société":        h["company_name"],
-                        "Poids":          f"{h['weight'] * 100:.1f}%",
-                        "Montant":        f"${float(h['investment_value']):,.0f}",
-                        "Score ESG":      f"{cs.final_score:.1f}" if cs else "—",
-                        "Risque":         RISK_LEVELS.get(t, "—"),
-                    })
+                    rows.append(
+                        {
+                            "Société": h["company_name"],
+                            "Poids": f"{h['weight'] * 100:.1f}%",
+                            "Montant": f"${float(h['investment_value']):,.0f}",
+                            "Score ESG": f"{cs.final_score:.1f}" if cs else "—",
+                            "Risque": RISK_LEVELS.get(t, "—"),
+                        }
+                    )
                 st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
                 _, btn_col = st.columns([10, 2])
                 with btn_col:
                     if st.button("Supprimer", key=f"del_{pf['id']}", use_container_width=True):
                         st.session_state["user_portfolios"] = [
-                            p for p in st.session_state["user_portfolios"]
-                            if p["id"] != pf["id"]
+                            p for p in st.session_state["user_portfolios"] if p["id"] != pf["id"]
                         ]
                         st.rerun()

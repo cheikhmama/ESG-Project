@@ -1,20 +1,13 @@
 """FastAPI application entry point.
 
 Run with:
-    uv run uvicorn src.esg_api.main:app --reload --port 8000
+    uv run uvicorn esg_api.main:app --reload --port 8000
 
 Swagger UI: http://localhost:8000/docs
 ReDoc:       http://localhost:8000/redoc
 """
 
 from __future__ import annotations
-
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

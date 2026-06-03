@@ -1,20 +1,13 @@
 """Page 6 — Sources de données par entreprise (traçabilité)."""
 
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))
-
 from datetime import date
 
 import streamlit as st
 
 st.set_page_config(page_title="Sources — ESG Platform", page_icon="◆", layout="wide")
 
-from streamlit_app.utils.styling import apply_global_styles, SECTOR_COLORS
-from streamlit_app.data.companies_data import COMPANIES, EMISSIONS, FINANCIAL_METRICS
+from esg_data.fixtures import COMPANIES, EMISSIONS, FINANCIAL_METRICS
+from streamlit_app.utils.styling import SECTOR_COLORS, apply_global_styles
 
 apply_global_styles()
 
@@ -63,7 +56,8 @@ COMPANY_META: dict[str, dict] = {
 
 @st.cache_data(ttl=3600)
 def _get_scores() -> dict:  # type: ignore[return]
-    from streamlit_app.utils.scoring_engine import compute_all_scores
+    from esg_data.services import compute_all_scores
+
     return compute_all_scores()
 
 
@@ -83,15 +77,15 @@ def _build_pdf(ticker: str, year: int) -> bytes:
 
     # ── Latin-1 sanitizer — Helvetica only supports ISO-8859-1 ────────────
     _REPLACEMENTS = {
-        "—": " - ",   # em dash —
-        "–": " - ",   # en dash –
-        "…": "...",   # ellipsis …
-        "‘": "'",     # left single quote
-        "’": "'",     # right single quote
-        "“": '"',     # left double quote
-        "”": '"',     # right double quote
-        "₂": "2",     # subscript 2 (CO₂)
-        "·": ".",     # middle dot
+        "—": " - ",  # em dash —
+        "–": " - ",  # en dash –
+        "…": "...",  # ellipsis …
+        "‘": "'",  # left single quote
+        "’": "'",  # right single quote
+        "“": '"',  # left double quote
+        "”": '"',  # right double quote
+        "₂": "2",  # subscript 2 (CO₂)
+        "·": ".",  # middle dot
     }
 
     def _s(text: str) -> str:
@@ -101,12 +95,12 @@ def _build_pdf(ticker: str, year: int) -> bytes:
 
     # ── Colour palette ─────────────────────────────────────────────────────
     INDIGO = (99, 102, 241)
-    AMBER  = (245, 158, 11)
-    GREEN  = (34, 197, 94)
-    DARK   = (30, 41, 59)
-    GRAY   = (100, 116, 139)
-    LGRAY  = (241, 245, 249)
-    WHITE  = (255, 255, 255)
+    AMBER = (245, 158, 11)
+    GREEN = (34, 197, 94)
+    DARK = (30, 41, 59)
+    GRAY = (100, 116, 139)
+    LGRAY = (241, 245, 249)
+    WHITE = (255, 255, 255)
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=18)
@@ -128,7 +122,9 @@ def _build_pdf(ticker: str, year: int) -> bytes:
     pdf.set_x(18)
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(210, 212, 255)
-    pdf.cell(W - 30, 6, _s(f"Ticker : {ticker}   |   Exercice {year}   |   {meta['sector']}"), ln=True)
+    pdf.cell(
+        W - 30, 6, _s(f"Ticker : {ticker}   |   Exercice {year}   |   {meta['sector']}"), ln=True
+    )
 
     pdf.set_xy(pdf.w - 52, 9)
     pdf.set_font("Helvetica", "B", 9)
@@ -218,32 +214,28 @@ def _build_pdf(ticker: str, year: int) -> bytes:
     # ── Financial data ─────────────────────────────────────────────────────
     if fm:
         section("Donnees financieres")
-        kpi_trio([
-            (f"Capitalisation ({year})",
-             f"${fm.get('market_cap', 0)/1e6:.0f}M",
-             INDIGO),
-            ("Chiffre d'affaires",
-             f"${fm.get('revenue', 0)/1e6:.0f}M",
-             INDIGO),
-            ("Effectif",
-             f"{int(fm.get('employees', 0)):,}",
-             INDIGO),
-        ])
+        kpi_trio(
+            [
+                (f"Capitalisation ({year})", f"${fm.get('market_cap', 0) / 1e6:.0f}M", INDIGO),
+                ("Chiffre d'affaires", f"${fm.get('revenue', 0) / 1e6:.0f}M", INDIGO),
+                ("Effectif", f"{int(fm.get('employees', 0)):,}", INDIGO),
+            ]
+        )
 
     # ── Carbon footprint ───────────────────────────────────────────────────
     if em:
         section("Empreinte carbone  (tCO2e)")
         total_em = em.scope_1 + em.scope_2 + em.total_scope_3
         rows_em = [
-            ("Scope 1 - Emissions directes",      f"{em.scope_1:,.0f} tCO2e"),
-            ("Scope 2 - Energie indirecte",        f"{em.scope_2:,.0f} tCO2e"),
-            ("Scope 3 - Chaine de valeur",         f"{em.total_scope_3:,.0f} tCO2e"),
-            ("Total toutes sources",               f"{total_em:,.0f} tCO2e"),
-            ("Source",                             em.source),
-            ("Niveau de confiance",                f"{em.confidence * 100:.0f}%"),
+            ("Scope 1 - Emissions directes", f"{em.scope_1:,.0f} tCO2e"),
+            ("Scope 2 - Energie indirecte", f"{em.scope_2:,.0f} tCO2e"),
+            ("Scope 3 - Chaine de valeur", f"{em.total_scope_3:,.0f} tCO2e"),
+            ("Total toutes sources", f"{total_em:,.0f} tCO2e"),
+            ("Source", em.source),
+            ("Niveau de confiance", f"{em.confidence * 100:.0f}%"),
         ]
         for j, (lbl, val) in enumerate(rows_em):
-            bold_total = (lbl == "Total toutes sources")
+            bold_total = lbl == "Total toutes sources"
             if j % 2 == 0:
                 pdf.set_fill_color(248, 250, 252)
             else:
@@ -261,17 +253,13 @@ def _build_pdf(ticker: str, year: int) -> bytes:
         env = cs.pillar("environment")
         soc = cs.pillar("social")
         gov = cs.pillar("governance")
-        kpi_trio([
-            ("Environnement (40%)",
-             f"{env.score:.1f}/100" if env else "-",
-             (34, 197, 94)),
-            ("Social (30%)",
-             f"{soc.score:.1f}/100" if soc else "-",
-             (59, 130, 246)),
-            ("Gouvernance (30%)",
-             f"{gov.score:.1f}/100" if gov else "-",
-             (139, 92, 246)),
-        ])
+        kpi_trio(
+            [
+                ("Environnement (40%)", f"{env.score:.1f}/100" if env else "-", (34, 197, 94)),
+                ("Social (30%)", f"{soc.score:.1f}/100" if soc else "-", (59, 130, 246)),
+                ("Gouvernance (30%)", f"{gov.score:.1f}/100" if gov else "-", (139, 92, 246)),
+            ]
+        )
         pdf.set_fill_color(*INDIGO)
         pdf.set_text_color(*WHITE)
         pdf.set_font("Helvetica", "B", 10)
@@ -282,11 +270,11 @@ def _build_pdf(ticker: str, year: int) -> bytes:
     section("Methodologie & licence")
     meth_rows = [
         ("Ponderations piliers", "Environnement 40%  |  Social 30%  |  Gouvernance 30%"),
-        ("Donnees manquantes",   "Mediane sectorielle (configurable YAML)"),
-        ("Normalisation",        "z-score puis clip [0, 100]"),
-        ("Licence",              "Apache 2.0 - Open Source"),
+        ("Donnees manquantes", "Mediane sectorielle (configurable YAML)"),
+        ("Normalisation", "z-score puis clip [0, 100]"),
+        ("Licence", "Apache 2.0 - Open Source"),
         ("Version methodologie", "Default ESG v1.0.0"),
-        ("Date de generation",   date.today().isoformat()),
+        ("Date de generation", date.today().isoformat()),
     ]
     for j, (lbl, val) in enumerate(meth_rows):
         row(lbl, val, shade=(j % 2 == 0))
@@ -316,7 +304,8 @@ st.markdown(
 search = st.text_input(" ", placeholder="Recherche", key="src_search", label_visibility="collapsed")
 
 filtered = {
-    k: v for k, v in COMPANY_META.items()
+    k: v
+    for k, v in COMPANY_META.items()
     if not search
     or search.lower() in v["name"].lower()
     or search.lower() in k.lower()
@@ -332,7 +321,6 @@ for ticker, meta in filtered.items():
     conf_color = "#22c55e" if conf >= 70 else "#f59e0b" if conf >= 55 else "#ef4444"
 
     with st.expander(f"{meta['name']}  ({ticker})  ·  {meta['sector']}", expanded=False):
-
         top_l, top_r = st.columns([4, 1])
         with top_l:
             st.markdown(

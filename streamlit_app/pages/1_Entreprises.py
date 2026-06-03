@@ -1,26 +1,19 @@
 """Page 1 — Répertoire des sociétés avec filtres avancés."""
 
-import sys
-from pathlib import Path
-
-_ROOT = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(_ROOT / "src"))
-sys.path.insert(0, str(_ROOT))
-
 import streamlit as st
 
 st.set_page_config(page_title="Sociétés — ESG Platform", page_icon="◆", layout="wide")
 
-from streamlit_app.utils.styling import (
-    apply_global_styles,
-    country_name,
-    SECTOR_COLORS,
-    PILLAR_COLORS,
-)
-from streamlit_app.data.companies_data import (
+from esg_data.fixtures import (
     COMPANIES,
     EMISSIONS,
     FINANCIAL_METRICS,
+)
+from streamlit_app.utils.styling import (
+    PILLAR_COLORS,
+    SECTOR_COLORS,
+    apply_global_styles,
+    country_name,
 )
 
 apply_global_styles()
@@ -28,7 +21,8 @@ apply_global_styles()
 
 @st.cache_data(ttl=3600)
 def _get_scores():  # type: ignore[no-untyped-def]
-    from streamlit_app.utils.scoring_engine import compute_all_scores
+    from esg_data.services import compute_all_scores
+
     return compute_all_scores()
 
 
@@ -97,7 +91,7 @@ for ticker, co in filtered.items():
                     <div style="color:#94a3b8;font-size:0.83rem;line-height:2;margin-top:6px">
                         <span style="color:#475569;font-size:0.65rem;text-transform:uppercase;
                                      letter-spacing:0.08em;font-weight:600">Effectif</span><br>
-                        <span style="color:#e2e8f0;font-weight:500">{int(fm['employees']):,} collaborateurs</span>
+                        <span style="color:#e2e8f0;font-weight:500">{int(fm["employees"]):,} collaborateurs</span>
                     </div>
                 </div>
                 """,
@@ -110,16 +104,16 @@ for ticker, co in filtered.items():
                 unsafe_allow_html=True,
             )
             mc1, mc2, mc3 = st.columns(3)
-            mc1.metric("Scope 1", f"{em.scope_1/1000:.0f}K t")
-            mc2.metric("Scope 2", f"{em.scope_2/1000:.0f}K t")
-            mc3.metric("Scope 3", f"{em.total_scope_3/1000:.0f}K t")
+            mc1.metric("Scope 1", f"{em.scope_1 / 1000:.0f}K t")
+            mc2.metric("Scope 2", f"{em.scope_2 / 1000:.0f}K t")
+            mc3.metric("Scope 3", f"{em.total_scope_3 / 1000:.0f}K t")
             st.markdown(
                 f"<div style='margin-top:10px;background:rgba(255,255,255,0.03);"
                 f"border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:10px 14px;"
                 f"display:flex;justify-content:space-between;align-items:center'>"
                 f"<span style='font-size:0.72rem;color:#64748b;text-transform:uppercase;"
                 f"letter-spacing:0.08em'>Total CO₂e</span>"
-                f"<span style='font-weight:700;color:#f1f5f9;font-size:1rem'>{total_carbon/1000:.1f}K t</span>"
+                f"<span style='font-weight:700;color:#f1f5f9;font-size:1rem'>{total_carbon / 1000:.1f}K t</span>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
@@ -128,8 +122,8 @@ for ticker, co in filtered.items():
         pc1, pc2, pc3 = st.columns(3)
         for col, pillar_id, label, color in [
             (pc1, "environment", "Environnement", PILLAR_COLORS["environment"]),
-            (pc2, "social",      "Social",         PILLAR_COLORS["social"]),
-            (pc3, "governance",  "Gouvernance",     PILLAR_COLORS["governance"]),
+            (pc2, "social", "Social", PILLAR_COLORS["social"]),
+            (pc3, "governance", "Gouvernance", PILLAR_COLORS["governance"]),
         ]:
             ps = cs.pillar(pillar_id)
             pscore = ps.score if ps else 0.0

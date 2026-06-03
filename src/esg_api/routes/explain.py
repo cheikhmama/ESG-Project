@@ -25,7 +25,7 @@ def explain_company(ticker: str) -> ExplainOut:
 
     decomp, narrative = get_decomposition(ticker, scores["company_scores"])
 
-    def _contrib_out(c: object) -> IndicatorContributionOut:  # type: ignore[type-arg]
+    def _contrib_out(c: object) -> IndicatorContributionOut:
         from esg_core.explainability.decomposition import IndicatorContribution
 
         assert isinstance(c, IndicatorContribution)

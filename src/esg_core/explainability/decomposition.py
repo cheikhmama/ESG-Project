@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from esg_core.models.score import CompanyScore, IndicatorScore, PillarScore, ThemeScore
+from esg_core.models.score import CompanyScore
 
 
 @dataclass(frozen=True)

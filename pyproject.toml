@@ -61,7 +61,7 @@ Repository = "https://github.com/your-org/esg-toolkit"
 Issues = "https://github.com/your-org/esg-toolkit/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/esg_core", "src/esg_data", "src/esg_api"]
+packages = ["src/esg_core", "src/esg_data", "src/esg_api", "streamlit_app"]
 
 # ---------------------------------------------------------------------------
 # Ruff

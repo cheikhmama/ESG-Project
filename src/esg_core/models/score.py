@@ -1,17 +1,48 @@
 """Score domain models — the output tree from the scoring engine."""
 
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, Field
 
 from esg_core.models.company import Company
 
 
+class IndicatorQualityFlag(str, Enum):
+    """Quality marker attached to every :class:`IndicatorScore`.
+
+    Lets downstream code (UI, narratives, audit exports) distinguish a
+    normalised-from-real-data score from one produced by an imputation or
+    silent fallback. Without this, a "neutral 50" looks identical to a
+    well-supported 50 — defeating the transparency promise.
+    """
+
+    NORMALIZED_OK = "normalized_ok"
+    """Raw value present; normalised against the full peer group."""
+
+    NORMALIZED_NEUTRAL_NO_PEERS = "normalized_neutral_no_peers"
+    """Raw value present, but peer group is empty — returned neutral 50."""
+
+    NORMALIZED_NEUTRAL_ZERO_VARIANCE = "normalized_neutral_zero_variance"
+    """Raw value present, but all peers identical — z-score fallback to 50."""
+
+    IMPUTED_SECTOR_MEDIAN = "imputed_sector_median"
+    """Raw value missing; substituted with same-sector peer median."""
+
+    IMPUTED_GLOBAL_MEDIAN = "imputed_global_median"
+    """Raw value missing; sector peers too few — fell back to global median."""
+
+    IMPUTED_WORST_CASE = "imputed_worst_case"
+    """Raw value missing; assigned the worst score (0) per methodology."""
+
+
 class IndicatorScore(BaseModel, frozen=True):
     """Score for a single indicator.
 
     Carries both the raw and normalised value (0–100 scale), plus the
-    weight and weighted contribution used in aggregation.
+    weight and weighted contribution used in aggregation. ``quality_flag``
+    discloses how the normalised value was obtained — present data, peer
+    fallback, or imputation.
 
     Reproducibility: frozen=True; all values explicit for full audit trail.
     """
@@ -21,6 +52,10 @@ class IndicatorScore(BaseModel, frozen=True):
     normalized_value: float = Field(..., ge=0.0, le=100.0, description="Value on 0–100 scale")
     weight: float = Field(..., ge=0.0, le=1.0, description="Weight within its theme")
     weighted_contribution: float = Field(..., description="weight × normalized_value")
+    quality_flag: IndicatorQualityFlag = Field(
+        default=IndicatorQualityFlag.NORMALIZED_OK,
+        description="How the normalised value was derived (present, fallback, imputed).",
+    )
 
 
 class ThemeScore(BaseModel, frozen=True):

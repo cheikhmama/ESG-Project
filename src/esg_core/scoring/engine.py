@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 import numpy as np
 
 from esg_core.methodology.hashing import methodology_hash as compute_methodology_hash
 from esg_core.models.company import Company
-from esg_core.models.methodology import Methodology
+from esg_core.models.methodology import Methodology, MissingDataStrategy
 from esg_core.models.portfolio import Portfolio
 from esg_core.models.score import CompanyScore, PillarScore, PortfolioScore
 from esg_core.scoring.aggregate import aggregate_pillar
@@ -56,13 +56,76 @@ def _flat_peer_to_nested(
     return nested
 
 
-def _inputs_hash(data: dict[str, float | None]) -> str:
-    """SHA-256 of a sorted canonical JSON of the input indicator values."""
-    serialised = json.dumps(
-        {k: v for k, v in sorted(data.items())},
-        ensure_ascii=True,
-        separators=(",", ":"),
+def _methodology_indicator_ids(methodology: Methodology) -> set[str]:
+    """Return the set of every indicator_id referenced by the methodology."""
+    return {
+        ind_id
+        for pillar in methodology.pillars.values()
+        for theme in pillar.themes.values()
+        for ind_id in theme.indicators
+    }
+
+
+def _validate_indicator_keys(
+    indicator_values: dict[str, float | None],
+    methodology: Methodology,
+    role: str,
+) -> None:
+    """Reject indicator dicts whose keys don't match the methodology.
+
+    Catches the silent-typo class of bug: if ``indicator_values`` contains a
+    key absent from the methodology (e.g. ``scope1_intensity`` instead of
+    ``scope_1_intensity``), the methodology's lookup returns ``None`` and the
+    missing-data strategy fires — but the data was actually present under
+    the typo'd key. The score would then be silently wrong with no error.
+
+    Missing methodology keys are NOT rejected here: an absent value is a
+    legitimate input that the missing-data strategy is designed to handle.
+
+    Reproducibility: validation is purely structural and deterministic.
+    """
+    expected = _methodology_indicator_ids(methodology)
+    unknown = set(indicator_values) - expected
+    if unknown:
+        msg = (
+            f"{role} contains indicator IDs not declared in the methodology: "
+            f"{sorted(unknown)}. Likely a typo or stale data. Filter or fix "
+            f"the input before scoring."
+        )
+        raise ValueError(msg)
+
+
+def _canonical_indicator_dict(data: dict[str, float | None]) -> dict[str, float | None]:
+    """Return the dict with keys sorted — used to make hashes order-independent."""
+    return {k: data[k] for k in sorted(data)}
+
+
+def _inputs_hash(
+    target: dict[str, float | None],
+    peers: list[dict[str, float | None]],
+    peer_sectors: list[str],
+) -> str:
+    """SHA-256 of the full input set: target company AND peer matrix.
+
+    Includes the peer matrix because percentile-rank normalisation depends on
+    it, AND the peers' sectors because the INDUSTRY_MEDIAN strategy buckets
+    by sector — a sector reassignment can therefore change the score even
+    when raw values are unchanged.
+
+    Reproducibility: peer (indicators, sector) pairs are sorted by their
+    canonical JSON form so the hash is invariant under input reordering.
+    """
+    canonical_target = _canonical_indicator_dict(target)
+    pairs = [
+        {"sector": s, "indicators": _canonical_indicator_dict(p)}
+        for s, p in zip(peer_sectors, peers, strict=True)
+    ]
+    canonical_pairs = sorted(
+        pairs,
+        key=lambda d: json.dumps(d, ensure_ascii=True, separators=(",", ":")),
     )
+    payload = {"target": canonical_target, "peers": canonical_pairs}
+    serialised = json.dumps(payload, ensure_ascii=True, separators=(",", ":"))
     return hashlib.sha256(serialised.encode("utf-8")).hexdigest()
 
 
@@ -71,8 +134,9 @@ def score_company(
     indicator_values: dict[str, float | None],
     methodology: Methodology,
     all_company_data: list[dict[str, float | None]],
-    scored_at: datetime | None = None,
-) -> CompanyScore:
+    all_company_sectors: list[str],
+    scored_at: datetime,
+) -> CompanyScore | None:
     """Score a single company under a given Methodology.
 
     Args:
@@ -83,24 +147,53 @@ def score_company(
         all_company_data: List of indicator_value dicts for ALL companies in
             the peer group (including the target company). Required for
             peer-relative normalisation.
-        scored_at: UTC datetime of scoring. If None, uses current UTC time.
-            Always pass explicitly in production for reproducibility.
+        all_company_sectors: List of sector strings parallel to
+            ``all_company_data`` (index by index). Required for the
+            INDUSTRY_MEDIAN missing-data strategy, which buckets peers by
+            sector. Must have the same length as ``all_company_data``.
+        scored_at: UTC datetime of scoring. Required — must be passed
+            explicitly. Reproducibility forbids implicit ``datetime.now()``.
 
     Returns:
-        A fully populated, immutable :class:`CompanyScore`.
+        A fully populated, immutable :class:`CompanyScore`, or ``None``
+        under the ``propagate_null`` strategy when any pillar cannot be
+        scored due to missing data. ``None`` signals "no score available
+        for this company under this methodology" and must be handled by
+        callers (the audit chain stays explicit instead of silently
+        falling back to a partial score).
 
     Reproducibility: given identical inputs and methodology, produces
-    byte-identical output. Uses methodology_hash and inputs_hash for
-    third-party verification.
+    byte-identical output. ``inputs_hash`` covers the target, the peer
+    matrix, AND the peers' sectors so two distinct scores cannot share
+    a hash.
     """
-    if scored_at is None:
-        scored_at = datetime.now(tz=timezone.utc)
+    if len(all_company_sectors) != len(all_company_data):
+        msg = (
+            f"all_company_sectors length ({len(all_company_sectors)}) must equal "
+            f"all_company_data length ({len(all_company_data)})"
+        )
+        raise ValueError(msg)
+
+    _validate_indicator_keys(indicator_values, methodology, role="indicator_values")
+    for i, row in enumerate(all_company_data):
+        _validate_indicator_keys(row, methodology, role=f"all_company_data[{i}]")
 
     mhash = compute_methodology_hash(methodology)
-    ihash = _inputs_hash(indicator_values)
+    ihash = _inputs_hash(indicator_values, all_company_data, all_company_sectors)
+    strategy = methodology.missing_data_strategy
 
     flat_peer = _build_peer_matrix(all_company_data)
     nested_peer = _flat_peer_to_nested(flat_peer, methodology)
+
+    # Sector-bucketed peer matrix for INDUSTRY_MEDIAN.
+    # Keeps order stable so build is deterministic.
+    sector_rows = [
+        row
+        for row, s in zip(all_company_data, all_company_sectors, strict=True)
+        if s == company.sector
+    ]
+    flat_sector_peer = _build_peer_matrix(sector_rows)
+    nested_sector_peer = _flat_peer_to_nested(flat_sector_peer, methodology)
 
     pillar_scores: list[PillarScore] = []
     active_pillar_weight_total = 0.0
@@ -112,14 +205,23 @@ def score_company(
             pillar_config=pillar_cfg,
             all_indicator_values=indicator_values,
             all_peer_matrix=nested_peer.get(pillar_id, {}),
-            strategy=methodology.missing_data_strategy,
+            all_sector_peer_matrix=nested_sector_peer.get(pillar_id, {}),
+            strategy=strategy,
         )
         if ps is None:
+            if strategy == MissingDataStrategy.PROPAGATE_NULL:
+                return None
+            # EXCLUDE_INDICATOR (or pillar with zero usable indicators) — skip
             continue
         active_pillar_weight_total += pillar_cfg.weight
         pillar_scores.append(ps)
 
-    # Renormalise if any pillar dropped
+    if not pillar_scores:
+        return None
+
+    # Renormalise if any pillar dropped (only possible under EXCLUDE_INDICATOR).
+    # Under PROPAGATE_NULL the function returned earlier, so reaching this
+    # branch with active_pillar_weight_total < 1 means a non-null strategy.
     if abs(active_pillar_weight_total - 1.0) > 1e-6 and active_pillar_weight_total > 1e-10:
         scale = 1.0 / active_pillar_weight_total
         pillar_scores = [
@@ -149,7 +251,7 @@ def score_portfolio(
     portfolio: Portfolio,
     company_scores: dict[str, CompanyScore],
     methodology: Methodology,
-    scored_at: datetime | None = None,
+    scored_at: datetime,
 ) -> PortfolioScore:
     """Aggregate individual CompanyScores into a weighted PortfolioScore.
 
@@ -157,16 +259,14 @@ def score_portfolio(
         portfolio: The portfolio being scored.
         company_scores: Map of company ticker → CompanyScore.
         methodology: The Methodology used (for hash reference).
-        scored_at: UTC datetime of scoring. Defaults to current UTC time.
+        scored_at: UTC datetime of scoring. Required — must be passed
+            explicitly. Reproducibility forbids implicit ``datetime.now()``.
 
     Returns:
         A fully populated, immutable :class:`PortfolioScore`.
 
     Reproducibility: weighted average is computed over numpy.float64.
     """
-    if scored_at is None:
-        scored_at = datetime.now(tz=timezone.utc)
-
     mhash = compute_methodology_hash(methodology)
     scores = list(company_scores.values())
 

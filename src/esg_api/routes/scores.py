@@ -10,7 +10,7 @@ from esg_api.schemas import CompanyScoreOut, PillarScoreOut
 router = APIRouter(tags=["Scores"])
 
 
-def _build_score_out(ticker: str, cs: object) -> CompanyScoreOut:  # type: ignore[type-arg]
+def _build_score_out(ticker: str, cs: object) -> CompanyScoreOut:
     from esg_core.models.score import CompanyScore
 
     assert isinstance(cs, CompanyScore)
@@ -37,10 +37,7 @@ def _build_score_out(ticker: str, cs: object) -> CompanyScoreOut:  # type: ignor
 def list_scores() -> list[CompanyScoreOut]:
     """Return ESG scores for every company on the platform."""
     data = get_scores()
-    return [
-        _build_score_out(ticker, cs)
-        for ticker, cs in data["company_scores"].items()
-    ]
+    return [_build_score_out(ticker, cs) for ticker, cs in data["company_scores"].items()]
 
 
 @router.get(
