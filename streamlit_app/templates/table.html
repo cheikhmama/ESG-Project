@@ -1,0 +1,46 @@
+<div class="rank-table-wrap">
+    <table class="rank-table">
+        <thead>
+            <tr>
+                <th class="rank-num">#</th>
+                <th>Société</th>
+                <th>Score ESG</th>
+                <th style="color:{{ header_colors.environment }}">E</th>
+                <th style="color:{{ header_colors.social }}">S</th>
+                <th style="color:{{ header_colors.governance }}">G</th>
+                <th>Carbone</th>
+                <th>Secteur</th>
+                <th>Risque</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td class="rank-num">#{{ row.rank }}</td>
+                <td>
+                    <div class="rank-name">{{ row.name }}</div>
+                    <div class="rank-ticker">{{ row.ticker }}</div>
+                </td>
+                <td>
+                    <div class="rank-bar">
+                        <div class="rank-bar-track">
+                            <div class="rank-bar-fill" style="width:{{ row.score_pct }}%;background:{{ row.score_color }}"></div>
+                        </div>
+                        <span class="rank-bar-val" style="color:{{ row.score_color }}">{{ row.score_str }}</span>
+                    </div>
+                </td>
+                {% for p in row.pillars %}
+                {% if p.val is none %}
+                <td><span class="rank-pillar-empty">—</span></td>
+                {% else %}
+                <td><span class="rank-pillar" style="color:{{ p.color }}">{{ p.val }}</span></td>
+                {% endif %}
+                {% endfor %}
+                <td class="rank-carbon">{{ row.carbon_str }}</td>
+                <td><span class="rank-chip rank-chip-sector" style="background:{{ row.sector_color }}22;color:{{ row.sector_color }}">{{ row.sector }}</span></td>
+                <td><span class="rank-chip rank-chip-risk" style="background:{{ row.risk_color }}22;color:{{ row.risk_color }}">{{ row.risk }}</span></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

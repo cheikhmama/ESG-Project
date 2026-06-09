@@ -1,0 +1,11 @@
+<div class="activity-wrap">
+    {% for item in items %}
+    <div class="activity-item">
+        <div class="activity-dot" style="background:{{ item.color }}"></div>
+        <div class="activity-body">
+            <div class="activity-text">Score ESG calculé pour <strong>{{ item.name }}</strong> — <span class="activity-score" style="color:{{ item.color }}">{{ item.score_str }} / 100</span></div>
+            <div class="activity-time">Aujourd'hui · Méthodologie Default ESG v1.0.0</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>

@@ -14,6 +14,7 @@ from esg_data.fixtures.companies_data import (
     REFERENCE_PORTFOLIOS,
     RISK_LEVELS,
 )
+from esg_data.fixtures.sources import COMPANY_META, OFFICIAL_REPORTS
 
 __all__ = [
     "COMPANIES",
@@ -22,4 +23,6 @@ __all__ = [
     "INDICATOR_VALUES",
     "REFERENCE_PORTFOLIOS",
     "RISK_LEVELS",
+    "COMPANY_META",
+    "OFFICIAL_REPORTS",
 ]

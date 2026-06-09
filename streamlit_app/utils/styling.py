@@ -1,8 +1,28 @@
-"""Shared styling utilities — no emojis, professional financial-platform look."""
+"""Shared styling utilities — dual light/dark theme via CSS custom properties."""
 
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
+
 import streamlit as st
+import streamlit_shadcn_ui as ui
+
+from streamlit_app.components import cards, kpi, layout
+from streamlit_app.utils import tokens
+
+# Single source of truth for structural / component CSS. Lives on disk so the
+# stylesheet can be edited without touching Python (see docs/refactor/01-plan).
+_CSS_PATH = Path(__file__).resolve().parents[1] / "assets" / "styles.css"
+
+
+@lru_cache(maxsize=1)
+def _static_css() -> str:
+    """Return the structural stylesheet, read once from ``assets/styles.css``."""
+    return _CSS_PATH.read_text(encoding="utf-8")
+
+# ── Semantic colour maps (unchanged by theme) ─────────────────────────────────
 
 SECTOR_COLORS: dict[str, str] = {
     "Mining & Metals": "#ef4444",
@@ -23,6 +43,14 @@ PILLAR_COLORS: dict[str, str] = {
     "governance": "#8b5cf6",
 }
 
+# French display labels for the three ESG pillars (shared by the dashboard,
+# comparison and explainability pages).
+PILLAR_LABELS: dict[str, str] = {
+    "environment": "Environnement",
+    "social": "Social",
+    "governance": "Gouvernance",
+}
+
 _COUNTRY_NAMES: dict[str, str] = {
     "MR": "Mauritanie",
     "MA": "Maroc",
@@ -34,301 +62,145 @@ _COUNTRY_NAMES: dict[str, str] = {
     "DE": "Allemagne",
 }
 
+# ── Palette tokens ─────────────────────────────────────────────────────────────
+# Palettes now live in ``tokens.py`` (single source of truth). Re-exported here
+# under their historical names for backward compatibility.
+
+_DARK = tokens.DARK
+_LIGHT = tokens.LIGHT
+
+# ── Theme helpers ─────────────────────────────────────────────────────────────
+
+
+def current_theme() -> str:
+    """Return the active theme name: 'dark' or 'light'."""
+    return str(st.session_state.get("ui_theme", "dark"))
+
+
+def palette() -> dict[str, str]:
+    """Return the active colour palette."""
+    return _DARK if current_theme() == "dark" else _LIGHT
+
+
+def plotly_layout(**overrides: Any) -> dict[str, Any]:
+    """Return a Plotly layout dict pre-configured for the active theme.
+
+    Usage: ``fig.update_layout(**plotly_layout(title=..., barmode="group"))``
+    """
+    p = palette()
+    base: dict[str, Any] = {
+        "paper_bgcolor": p["chart_bg"],
+        "plot_bgcolor": p["chart_bg"],
+        "font": {"color": p["chart_text"], "family": "Inter"},
+        "legend": {"bgcolor": "rgba(0,0,0,0)", "font": {"size": 11, "color": p["chart_text"]}},
+        "margin": {"l": 0, "r": 0, "t": 40, "b": 0},
+        "xaxis": {"gridcolor": p["chart_grid"], "tickfont": {"size": 11}},
+        "yaxis": {"gridcolor": p["chart_grid"], "tickfont": {"size": 11}},
+    }
+    base.update(overrides)
+    return base
+
+
+# ── CSS injection ─────────────────────────────────────────────────────────────
+
+
+def _root_vars(p: dict[str, str]) -> str:
+    """Return the ``:root`` block of theme palette variables (delegated to tokens)."""
+    return tokens.palette_css(p)
+
+
+def apply_global_styles() -> None:
+    """Inject the active theme's CSS custom properties + structural styles."""
+    # Initialise from query param so theme survives page reloads.
+    if "ui_theme" not in st.session_state:
+        st.session_state["ui_theme"] = st.query_params.get("theme", "dark")
+    p = palette()
+    st.markdown(
+        f"<style>{_root_vars(p)}\n{tokens.static_tokens_css()}\n{_static_css()}</style>",
+        unsafe_allow_html=True,
+    )
+
+
+# ── Page helpers ──────────────────────────────────────────────────────────────
+
+
+def page_header(title: str, subtitle: str = "") -> None:
+    """Render a compact page header with optional breadcrumb subtitle."""
+    layout.page_header(title, subtitle)
+
+
+# ── Score helpers ─────────────────────────────────────────────────────────────
+
 
 def country_name(code: str) -> str:
     """Return the French country name for an ISO 3166-1 alpha-2 code."""
     return _COUNTRY_NAMES.get(code.upper(), code)
 
 
+_T_HIGH = 70  # score threshold: green
+_T_MID  = 50  # score threshold: amber
+_T5_A   = 80  # 5-band: top green
+_T5_B   = 65  # 5-band: lime
+_T5_C   = 50  # 5-band: amber
+_T5_D   = 35  # 5-band: orange
+
+
 def score_color(score: float) -> str:
-    if score >= 70:
+    if score >= _T_HIGH:
         return "#22c55e"
-    if score >= 50:
+    if score >= _T_MID:
         return "#f59e0b"
     return "#ef4444"
 
 
 def score_label(score: float) -> str:
-    if score >= 70:
+    if score >= _T_HIGH:
         return "Élevé"
-    if score >= 50:
+    if score >= _T_MID:
         return "Moyen"
     return "Faible"
 
 
-def apply_global_styles() -> None:
-    st.markdown(
-        """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+def score_color5(score: float) -> str:
+    """5-level ESG score colour — green → red."""
+    if score >= _T5_A:
+        return "#0ea672"
+    if score >= _T5_B:
+        return "#84cc16"
+    if score >= _T5_C:
+        return "#e89e0c"
+    if score >= _T5_D:
+        return "#f97316"
+    return "#e53e3e"
 
-*, html, body, [class*="css"] {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-}
 
-/* Hide Streamlit chrome — keep sidebar toggle visible */
-footer { visibility: hidden; }
-[data-testid="stDecoration"] { display: none; }
-[data-testid="stAppDeployButton"] { display: none !important; }
-[data-testid="stMainMenuButton"] { display: none !important; }
-[data-testid="stAppHeader"] {
-    background: transparent !important;
-    border-bottom: none !important;
-}
-/* Sidebar expand button (when sidebar is collapsed) */
-[data-testid="stExpandSidebarButton"] {
-    visibility: visible !important;
-    display: flex !important;
-}
-/* Sidebar collapse button (inside sidebar) */
-[data-testid="stSidebarCollapseButton"] {
-    visibility: visible !important;
-    display: flex !important;
-}
+# ── Card components ───────────────────────────────────────────────────────────
 
-/* App background */
-.stApp {
-    background: linear-gradient(145deg, #0c1321 0%, #111827 50%, #0c1321 100%);
-    color: #e2e8f0;
-}
 
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #111827 0%, #0c1321 100%);
-    border-right: 1px solid rgba(255,255,255,0.05);
-}
-[data-testid="stSidebar"] [data-testid="stMarkdown"] p {
-    color: #64748b;
-    font-size: 0.78rem;
-}
+def dash_section(title: str, meta: str = "") -> None:
+    """Compact section heading with optional inline meta text."""
+    layout.dash_section(title, meta)
 
-/* Glass card */
-.esg-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 14px;
-    padding: 22px 26px;
-    margin-bottom: 16px;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.esg-card:hover {
-    border-color: rgba(99,102,241,0.3);
-    box-shadow: 0 4px 20px rgba(99,102,241,0.08);
-}
 
-/* KPI box */
-.kpi-box {
-    background: rgba(99,102,241,0.07);
-    border: 1px solid rgba(99,102,241,0.18);
-    border-radius: 14px;
-    padding: 22px 18px;
-    text-align: center;
-    height: 100%;
-}
-.kpi-value {
-    font-size: 1.95rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    line-height: 1.1;
-    margin-bottom: 2px;
-}
-.kpi-label {
-    font-size: 0.64rem;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-weight: 700;
-    margin-top: 6px;
-}
-.kpi-sub {
-    font-size: 0.73rem;
-    color: #475569;
-    margin-top: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Section header — uppercase label with left accent */
-.section-header {
-    font-size: 0.63rem;
-    font-weight: 700;
-    color: #6366f1;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    margin: 36px 0 16px 0;
-    padding: 0 0 8px 10px;
-    border-bottom: 1px solid rgba(99,102,241,0.15);
-    border-left: 3px solid #6366f1;
-}
-
-/* Pill / badge */
-.pill {
-    display: inline-block;
-    padding: 2px 9px;
-    border-radius: 5px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.6;
-}
-
-/* Buttons — neutral ghost style (like download / upload buttons) */
-.stButton > button {
-    background: rgba(255,255,255,0.05);
-    color: #e2e8f0;
-    border: 1px solid rgba(255,255,255,0.13);
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.85rem;
-    padding: 8px 18px;
-    letter-spacing: 0.01em;
-    transition: all 0.15s;
-}
-.stButton > button:hover {
-    background: rgba(255,255,255,0.09);
-    border-color: rgba(255,255,255,0.22);
-}
-.stButton > button:focus {
-    box-shadow: 0 0 0 2px rgba(99,102,241,0.4);
-    outline: none;
-}
-/* Primary type — purple gradient accent */
-[data-testid="baseButton-primary"] {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
-    color: white !important;
-    border: none !important;
-    box-shadow: 0 2px 12px rgba(99,102,241,0.3) !important;
-}
-[data-testid="baseButton-primary"]:hover {
-    opacity: 0.9 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 18px rgba(99,102,241,0.45) !important;
-}
-
-/* Metrics */
-[data-testid="metric-container"] {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 10px;
-    padding: 14px 16px;
-}
-[data-testid="metric-container"] [data-testid="stMetricLabel"] {
-    font-size: 0.72rem;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 600;
-}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: #f1f5f9;
-}
-
-/* Tabs */
-[data-testid="stTabs"] button {
-    font-weight: 600;
-    font-size: 0.84rem;
-    color: #64748b;
-    border-bottom: 2px solid transparent;
-    padding: 10px 18px;
-}
-[data-testid="stTabs"] button[aria-selected="true"] {
-    color: #6366f1;
-    border-bottom-color: #6366f1;
-}
-[data-testid="stTabs"] button:hover {
-    color: #94a3b8;
-}
-
-/* Dataframe */
-[data-testid="stDataFrame"] {
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.06) !important;
-}
-
-/* Expander */
-details {
-    background: rgba(255,255,255,0.02) !important;
-    border: 1px solid rgba(255,255,255,0.07) !important;
-    border-radius: 12px !important;
-}
-details > summary {
-    font-weight: 600 !important;
-    color: #cbd5e1 !important;
-    padding: 14px 18px !important;
-    font-size: 0.9rem !important;
-    list-style: none;
-}
-details[open] > summary {
-    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
-}
-
-/* Inputs */
-.stTextInput input, .stNumberInput input {
-    background: rgba(255,255,255,0.04) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 8px !important;
-    color: #e2e8f0 !important;
-}
-.stTextInput input:focus, .stNumberInput input:focus {
-    border-color: rgba(99,102,241,0.5) !important;
-    box-shadow: 0 0 0 2px rgba(99,102,241,0.15) !important;
-}
-.stSelectbox > div > div {
-    background: rgba(255,255,255,0.04) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 8px !important;
-}
-
-/* File uploader */
-[data-testid="stFileUploader"] {
-    background: rgba(255,255,255,0.02);
-    border: 1px dashed rgba(99,102,241,0.35);
-    border-radius: 10px;
-    padding: 8px;
-}
-
-/* Alerts */
-[data-testid="stAlert"] {
-    border-radius: 10px;
-    border: none;
-}
-
-/* Divider */
-hr {
-    border: none;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    margin: 24px 0;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-    background: rgba(99,102,241,0.3);
-    border-radius: 3px;
-}
-</style>
-        """,
-        unsafe_allow_html=True,
-    )
+def kpi_v2(
+    label: str,
+    value: str,
+    sub: str = "",
+    trend: str = "",
+    trend_dir: str = "up",
+    color: str = "#2d7aed",
+    pct: float = 0.0,
+) -> None:
+    """Compact enterprise KPI card with optional trend badge and progress bar."""
+    kpi.kpi_v2(label, value, sub, trend, trend_dir, color, pct)
 
 
 def kpi_card(label: str, value: str, sublabel: str = "") -> None:
-    sub = f"<div class='kpi-sub'>{sublabel}</div>" if sublabel else ""
-    st.markdown(
-        f"<div class='kpi-box'>"
-        f"<div class='kpi-value'>{value}</div>"
-        f"<div class='kpi-label'>{label}</div>"
-        f"{sub}"
-        f"</div>",
-        unsafe_allow_html=True,
-    )
+    """KPI metric card — uses shadcn metric_card in light mode, custom HTML in dark."""
+    if current_theme() == "light":
+        ui.metric_card(title=label, content=value, description=sublabel)
+    else:
+        kpi.kpi_card_dark(label, value, sublabel)
 
 
 def company_card(
@@ -340,49 +212,23 @@ def company_card(
     risk: str,
     mc: float,
 ) -> None:
-    sc = score_color(score)
-    rc = RISK_COLORS.get(risk, "#94a3b8")
-    sk = SECTOR_COLORS.get(sector, "#6366f1")
-    sl = score_label(score)
-    st.markdown(
-        f"""
-        <div class="esg-card">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-                <div style="flex:1;min-width:0">
-                    <div style="font-size:1.05rem;font-weight:700;color:#f1f5f9;
-                                white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
-                    <div style="margin-top:7px;display:flex;gap:5px;flex-wrap:wrap">
-                        <span style="background:{sk}18;color:{sk};padding:2px 9px;
-                                     border-radius:5px;font-size:0.71rem;font-weight:600">{sector}</span>
-                        <span style="background:{rc}15;color:{rc};padding:2px 9px;
-                                     border-radius:5px;font-size:0.71rem;font-weight:600">Risque {risk}</span>
-                    </div>
-                </div>
-                <div style="text-align:right;flex-shrink:0">
-                    <div style="font-size:1.85rem;font-weight:800;color:{sc};line-height:1">{score:.1f}</div>
-                    <div style="font-size:0.6rem;color:{sc};opacity:0.75;text-transform:uppercase;
-                                letter-spacing:0.06em;margin-top:1px">{sl}</div>
-                </div>
-            </div>
-            <div style="display:flex;gap:28px;margin-top:14px;padding-top:12px;
-                        border-top:1px solid rgba(255,255,255,0.05)">
-                <div>
-                    <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;
-                                letter-spacing:0.09em;font-weight:600">Empreinte Carbone</div>
-                    <div style="font-weight:600;color:#cbd5e1;font-size:0.88rem;margin-top:3px">{carbon / 1000:.1f}K tCO₂e</div>
-                </div>
-                <div>
-                    <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;
-                                letter-spacing:0.09em;font-weight:600">Capitalisation</div>
-                    <div style="font-weight:600;color:#cbd5e1;font-size:0.88rem;margin-top:3px">${mc / 1e6:.0f}M</div>
-                </div>
-                <div style="margin-left:auto">
-                    <div style="font-size:0.6rem;color:#475569;text-transform:uppercase;
-                                letter-spacing:0.09em;font-weight:600">Symbole</div>
-                    <div style="font-weight:700;color:#6366f1;font-size:0.88rem;margin-top:3px">{ticker}</div>
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    """Company summary card — themed via CSS custom properties."""
+    p = palette()
+    cards.company_card(
+        name=name,
+        sector=sector,
+        risk=risk,
+        ticker=ticker,
+        score_str=f"{score:.1f}",
+        score_label=score_label(score),
+        score_color=score_color(score),
+        sector_color=SECTOR_COLORS.get(sector, "#6366f1"),
+        risk_color=RISK_COLORS.get(risk, "#94a3b8"),
+        carbon_k=f"{carbon / 1000:.1f}",
+        mc_m=f"{mc / 1e6:.0f}",
+        text_heading=p["text_heading"],
+        text=p["text"],
+        text_sub=p["text_sub"],
+        divider=p["divider"],
+        accent=p["accent"],
     )

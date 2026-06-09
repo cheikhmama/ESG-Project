@@ -1,0 +1,8 @@
+<div class="cmp-adv-header cmp-adv-header--{{ kind }}">{{ title }} en avance</div>
+{% if items %}
+{% for it in items %}
+<div class="cmp-adv-card cmp-adv-card--{{ kind }}"><span class="cmp-adv-theme">{{ it.theme }}</span><span class="cmp-adv-delta cmp-adv-delta--{{ kind }}">{{ it.delta }}</span></div>
+{% endfor %}
+{% else %}
+<div class="cmp-adv-empty">Aucun avantage significatif.</div>
+{% endif %}

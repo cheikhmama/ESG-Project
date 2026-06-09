@@ -1,0 +1,11 @@
+<div class="alerts-wrap">
+    {% for item in items %}
+    <div class="alert-item">
+        <div class="alert-bar" style="background:{{ item.risk_color }}"></div>
+        <div class="alert-body">
+            <div class="alert-title">{{ item.name }}<span class="alert-chip" style="background:{{ item.risk_color }}25;color:{{ item.risk_color }}">{{ item.risk }}</span></div>
+            <div class="alert-desc">{{ item.desc }}</div>
+        </div>
+    </div>
+    {% endfor %}
+</div>

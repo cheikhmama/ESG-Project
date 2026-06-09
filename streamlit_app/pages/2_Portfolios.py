@@ -3,12 +3,15 @@
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(page_title="Portefeuilles — ESG Platform", page_icon="◆", layout="wide")
+st.set_page_config(page_title="Portefeuilles — ESG Platform", page_icon="◆", layout="wide", initial_sidebar_state="expanded")
 
 from esg_data.fixtures import EMISSIONS, REFERENCE_PORTFOLIOS, RISK_LEVELS
-from streamlit_app.utils.styling import apply_global_styles
+from streamlit_app.components import layout
+from streamlit_app.utils.nav import render_sidebar_nav
+from streamlit_app.utils.styling import apply_global_styles, page_header, plotly_layout
 
 apply_global_styles()
+render_sidebar_nav()
 
 import pandas as pd
 
@@ -24,7 +27,7 @@ def _get_data():  # type: ignore[no-untyped-def]
     scores = compute_all_scores()
     results = []
     for pdef in REFERENCE_PORTFOLIOS:
-        port = build_portfolio(pdef)  # type: ignore[arg-type]
+        port = build_portfolio(pdef)
         result = compute_portfolio_score(port, scores["company_scores"], scores["methodology"])
         results.append({"def": pdef, "portfolio": port, "result": result})
     return scores, results
@@ -33,12 +36,9 @@ def _get_data():  # type: ignore[no-untyped-def]
 scores_data, portfolio_results = _get_data()
 company_scores = scores_data["company_scores"]
 
-st.markdown(
-    "<h1 style='font-size:1.8rem;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em;"
-    "margin-bottom:2px'>Portefeuilles de Référence</h1>"
-    "<p style='color:#475569;font-size:0.88rem;margin-bottom:28px'>"
-    "Catalogues communautaires — explorez, clonez ou envoyez vers l'audit.</p>",
-    unsafe_allow_html=True,
+page_header(
+    "Portefeuilles de Référence",
+    "Catalogues communautaires — explorez, clonez ou envoyez vers l'audit.",
 )
 
 CARD_COLORS = ["#6366f1", "#22c55e", "#f59e0b", "#ef4444"]
@@ -54,10 +54,7 @@ for item in portfolio_results:
         f"{pdef['name']}  ·  Score ESG : {wps:.1f} / 100  ·  {len(port.holdings)} positions",
         expanded=False,
     ):
-        st.markdown(
-            f"<div style='color:#64748b;font-size:0.83rem;margin-bottom:20px'>{pdef['description']}</div>",
-            unsafe_allow_html=True,
-        )
+        layout.portfolio_description(pdef["description"])
 
         # KPIs
         k1, k2, k3 = st.columns(3)
@@ -65,7 +62,7 @@ for item in portfolio_results:
         k2.metric("Émissions Financées", f"{carbon.total_financed_emissions / 1000:.1f}K tCO₂e")
         k3.metric("Capital Total", f"${port.total_investment_value / 1000:.0f}K")
 
-        st.markdown("<hr>", unsafe_allow_html=True)
+        layout.divider()
 
         # Holdings table
         rows = []
@@ -104,12 +101,11 @@ for item in portfolio_results:
                 )
             )
             fig_donut.update_layout(
-                title=dict(text="Répartition des poids", font=dict(size=12, color="#64748b")),
-                paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#94a3b8", family="Inter"),
-                legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=10)),
-                height=260,
-                margin=dict(t=40, b=0, l=0, r=0),
+                **plotly_layout(
+                    title=dict(text="Répartition des poids", font=dict(size=12)),
+                    height=260,
+                    margin=dict(t=40, b=0, l=0, r=0),
+                )
             )
             st.plotly_chart(fig_donut, use_container_width=True)
 
@@ -128,14 +124,13 @@ for item in portfolio_results:
                 )
             )
             fig_bar.update_layout(
-                title=dict(text="Score ESG par société", font=dict(size=12, color="#64748b")),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#94a3b8", family="Inter"),
-                height=260,
-                margin=dict(t=40, b=0, l=0, r=0),
-                xaxis=dict(gridcolor="rgba(255,255,255,0.04)", tickfont=dict(size=10)),
-                yaxis=dict(range=[0, 115], gridcolor="rgba(255,255,255,0.04)"),
+                **plotly_layout(
+                    title=dict(text="Score ESG par société", font=dict(size=12)),
+                    height=260,
+                    margin=dict(t=40, b=0, l=0, r=0),
+                    xaxis=dict(tickfont=dict(size=10)),
+                    yaxis=dict(range=[0, 115]),
+                )
             )
             st.plotly_chart(
                 fig_bar,
@@ -171,12 +166,7 @@ for item in portfolio_results:
                 st.switch_page("pages/5_Explainability.py")
 
         if st.session_state.get(f"show_clone_{pdef['id']}"):
-            with st.container():
-                st.markdown(
-                    "<div style='background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.25);"
-                    "border-radius:10px;padding:18px 20px;margin-top:12px'>",
-                    unsafe_allow_html=True,
-                )
+            with st.container(key=f"clonebox_{pdef['id']}"):
                 clone_name = st.text_input(
                     "Nom du portefeuille cloné",
                     value=f"Copie — {pdef['name']}",
@@ -218,4 +208,3 @@ for item in portfolio_results:
                     if st.button("Annuler", key=f"clone_cancel_{pdef['id']}"):
                         st.session_state[f"show_clone_{pdef['id']}"] = False
                         st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)

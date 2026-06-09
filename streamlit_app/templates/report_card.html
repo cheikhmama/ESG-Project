@@ -1,0 +1,7 @@
+<div class="report-card report-card--{{ variant }}">
+    <div class="report-card__title">{{ title }}</div>
+    <div class="report-card__body">{{ body }}</div>
+    {% if href %}
+    <a class="report-card__link" href="{{ href }}" target="_blank">{{ action_text }}</a>
+    {% endif %}
+</div>

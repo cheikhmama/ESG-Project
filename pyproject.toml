@@ -41,6 +41,8 @@ ml = [
 dashboard = [
     "plotly>=5.20",
     "streamlit>=1.33",
+    "streamlit-shadcn-ui>=0.1.18",
+    "jinja2>=3.1",
 ]
 dev = [
     "pytest>=8.0",
@@ -107,7 +109,7 @@ explicit_package_bases = true
 warn_unused_configs = true
 
 [[tool.mypy.overrides]]
-module = ["shap.*", "streamlit.*"]
+module = ["pandas.*", "plotly.*", "shap.*", "streamlit.*", "streamlit_shadcn_ui.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------

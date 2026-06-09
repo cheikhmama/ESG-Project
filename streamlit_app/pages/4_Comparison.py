@@ -4,12 +4,20 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(page_title="Comparaison — ESG Platform", page_icon="◆", layout="wide")
+st.set_page_config(page_title="Comparaison — ESG Platform", page_icon="◆", layout="wide", initial_sidebar_state="expanded")
 
 from esg_data.fixtures import COMPANIES, REFERENCE_PORTFOLIOS
-from streamlit_app.utils.styling import apply_global_styles
+from streamlit_app.components import layout, tables
+from streamlit_app.utils.nav import render_sidebar_nav
+from streamlit_app.utils.styling import (
+    PILLAR_LABELS,
+    apply_global_styles,
+    page_header,
+    plotly_layout,
+)
 
 apply_global_styles()
+render_sidebar_nav()
 
 
 @st.cache_data(ttl=3600)
@@ -70,13 +78,7 @@ for up in st.session_state.get("user_portfolios", []):
     }
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-st.markdown(
-    "<h1 style='font-size:1.8rem;font-weight:800;color:#f1f5f9;letter-spacing:-0.02em;"
-    "margin-bottom:2px'>Comparaison</h1>"
-    "<p style='color:#475569;font-size:0.88rem;margin-bottom:28px'>"
-    "Analysez les écarts ESG entre deux portefeuilles côte à côte.</p>",
-    unsafe_allow_html=True,
-)
+page_header("Comparaison", "Analysez les écarts ESG entre deux portefeuilles côte à côte.")
 
 if len(options) < 2:
     st.info(
@@ -92,22 +94,13 @@ col_a, col_vs, col_b = st.columns([5, 1, 5])
 with col_a:
     choice_a = st.selectbox("Portefeuille A", [PLACEHOLDER] + names, key="cmp_a")
 with col_vs:
-    st.markdown(
-        "<div style='text-align:center;padding-top:30px;font-size:1rem;font-weight:700;"
-        "color:#475569;letter-spacing:0.05em'>VS</div>",
-        unsafe_allow_html=True,
-    )
+    layout.vs_divider()
 with col_b:
     remaining = [n for n in names if n != choice_a]
     choice_b = st.selectbox("Portefeuille B", [PLACEHOLDER] + remaining, key="cmp_b")
 
 if choice_a == PLACEHOLDER or choice_b == PLACEHOLDER or choice_a == choice_b:
-    st.markdown(
-        "<div style='text-align:center;padding:64px 0;color:#334155'>"
-        "<div style='font-size:0.9rem'>Sélectionnez deux portefeuilles différents pour lancer la comparaison.</div>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    layout.comparison_placeholder()
     st.stop()
 
 sel_a = options[choice_a]
@@ -124,109 +117,82 @@ wps_b = ps_b.weighted_portfolio_score
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 1 — KPI Comparison
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("<div class='section-header'>Résumé comparatif</div>", unsafe_allow_html=True)
+layout.section_label("Résumé comparatif")
 
 
-def _delta_str(val_a: float, val_b: float, higher_is_better: bool = True) -> str:
+def _delta_data(
+    val_a: float, val_b: float, higher_is_better: bool = True
+) -> dict[str, str] | None:
     delta = val_a - val_b
     if abs(delta) < 0.05:
-        return "<span style='color:#64748b'>—</span>"
+        return {"kind": "neutral", "text": "—"}
     arrow = "▲" if delta > 0 else "▼"
-    color = "#22c55e" if (delta > 0) == higher_is_better else "#ef4444"
+    kind = "pos" if (delta > 0) == higher_is_better else "neg"
     sign = "+" if delta > 0 else ""
-    return f"<span style='color:{color};font-weight:700'>{arrow} {sign}{delta:.1f}</span>"
+    return {"kind": kind, "text": f"{arrow} {sign}{delta:.1f}"}
 
 
 kpi_rows = [
     {
-        "Indicateur": "Score ESG Pondéré",
-        "Portefeuille A": f"{wps_a:.1f} / 100",
-        "Portefeuille B": f"{wps_b:.1f} / 100",
-        "_delta": _delta_str(wps_a, wps_b, higher_is_better=True),
+        "indicator": "Score ESG Pondéré",
+        "a": f"{wps_a:.1f} / 100",
+        "b": f"{wps_b:.1f} / 100",
+        "delta": _delta_data(wps_a, wps_b, higher_is_better=True),
     },
     {
-        "Indicateur": "Positions",
-        "Portefeuille A": str(len(port_a.holdings)),
-        "Portefeuille B": str(len(port_b.holdings)),
-        "_delta": "—",
+        "indicator": "Positions",
+        "a": str(len(port_a.holdings)),
+        "b": str(len(port_b.holdings)),
+        "delta": None,
     },
     {
-        "Indicateur": "Capital Total",
-        "Portefeuille A": f"${port_a.total_investment_value / 1000:.0f}K",
-        "Portefeuille B": f"${port_b.total_investment_value / 1000:.0f}K",
-        "_delta": "—",
+        "indicator": "Capital Total",
+        "a": f"${port_a.total_investment_value / 1000:.0f}K",
+        "b": f"${port_b.total_investment_value / 1000:.0f}K",
+        "delta": None,
     },
     {
-        "Indicateur": "Émissions Financées",
-        "Portefeuille A": f"{carbon_a.total_financed_emissions / 1000:.1f}K tCO₂e",
-        "Portefeuille B": f"{carbon_b.total_financed_emissions / 1000:.1f}K tCO₂e",
-        "_delta": _delta_str(
+        "indicator": "Émissions Financées",
+        "a": f"{carbon_a.total_financed_emissions / 1000:.1f}K tCO₂e",
+        "b": f"{carbon_b.total_financed_emissions / 1000:.1f}K tCO₂e",
+        "delta": _delta_data(
             carbon_a.total_financed_emissions,
             carbon_b.total_financed_emissions,
             higher_is_better=False,
         ),
     },
     {
-        "Indicateur": "Intensité Carbone",
-        "Portefeuille A": f"{carbon_a.carbon_intensity:.1f} tCO₂e/$M",
-        "Portefeuille B": f"{carbon_b.carbon_intensity:.1f} tCO₂e/$M",
-        "_delta": _delta_str(
+        "indicator": "Intensité Carbone",
+        "a": f"{carbon_a.carbon_intensity:.1f} tCO₂e/$M",
+        "b": f"{carbon_b.carbon_intensity:.1f} tCO₂e/$M",
+        "delta": _delta_data(
             carbon_a.carbon_intensity, carbon_b.carbon_intensity, higher_is_better=False
         ),
     },
     {
-        "Indicateur": "WACI (tCO₂e/$M CA)",
-        "Portefeuille A": f"{carbon_a.waci:.1f}",
-        "Portefeuille B": f"{carbon_b.waci:.1f}",
-        "_delta": _delta_str(carbon_a.waci, carbon_b.waci, higher_is_better=False),
+        "indicator": "WACI (tCO₂e/$M CA)",
+        "a": f"{carbon_a.waci:.1f}",
+        "b": f"{carbon_b.waci:.1f}",
+        "delta": _delta_data(carbon_a.waci, carbon_b.waci, higher_is_better=False),
     },
     {
-        "Indicateur": "Carbon-to-Value (tCO₂e/$M EVIC)",
-        "Portefeuille A": f"{carbon_a.carbon_to_value:.1f}",
-        "Portefeuille B": f"{carbon_b.carbon_to_value:.1f}",
-        "_delta": _delta_str(
+        "indicator": "Carbon-to-Value (tCO₂e/$M EVIC)",
+        "a": f"{carbon_a.carbon_to_value:.1f}",
+        "b": f"{carbon_b.carbon_to_value:.1f}",
+        "delta": _delta_data(
             carbon_a.carbon_to_value, carbon_b.carbon_to_value, higher_is_better=False
         ),
     },
 ]
 
-# Render as HTML table for styled delta column
-header_a = f"<th style='text-align:right;color:#6366f1;padding:10px 16px'>{choice_a}</th>"
-header_b = f"<th style='text-align:right;color:#22c55e;padding:10px 16px'>{choice_b}</th>"
-rows_html = ""
-for r in kpi_rows:
-    rows_html += (
-        f"<tr style='border-bottom:1px solid rgba(255,255,255,0.04)'>"
-        f"<td style='padding:10px 16px;color:#94a3b8;font-size:0.83rem'>{r['Indicateur']}</td>"
-        f"<td style='text-align:right;padding:10px 16px;color:#f1f5f9;font-weight:600'>{r['Portefeuille A']}</td>"
-        f"<td style='text-align:right;padding:10px 16px;color:#f1f5f9;font-weight:600'>{r['Portefeuille B']}</td>"
-        f"<td style='text-align:center;padding:10px 16px;font-size:0.83rem'>{r['_delta']}</td>"
-        f"</tr>"
-    )
-
-st.markdown(
-    f"<div style='background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);"
-    f"border-radius:12px;overflow:hidden'>"
-    f"<table style='width:100%;border-collapse:collapse'>"
-    f"<thead><tr style='border-bottom:1px solid rgba(255,255,255,0.08)'>"
-    f"<th style='text-align:left;padding:10px 16px;color:#475569;font-size:0.63rem;"
-    f"text-transform:uppercase;letter-spacing:0.12em'>Indicateur</th>"
-    f"{header_a}{header_b}"
-    f"<th style='text-align:center;padding:10px 16px;color:#475569;font-size:0.63rem;"
-    f"text-transform:uppercase;letter-spacing:0.12em'>Écart</th>"
-    f"</tr></thead>"
-    f"<tbody>{rows_html}</tbody>"
-    f"</table></div>",
-    unsafe_allow_html=True,
-)
+tables.comparison_table(choice_a, choice_b, kpi_rows)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 2 — Pillar score comparison
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("<div class='section-header'>Scores par Pilier</div>", unsafe_allow_html=True)
+layout.section_label("Scores par Pilier")
 
-pillar_labels = {"environment": "Environnement", "social": "Social", "governance": "Gouvernance"}
-pillar_ids = list(pillar_labels.keys())
+pillar_ids = list(PILLAR_LABELS.keys())
 
 
 def _portfolio_pillar_avg(port, cs_dict: dict, pillar_id: str) -> float:  # type: ignore[no-untyped-def]
@@ -246,7 +212,7 @@ def _portfolio_pillar_avg(port, cs_dict: dict, pillar_id: str) -> float:  # type
 
 vals_a = [_portfolio_pillar_avg(port_a, company_scores_all, pid) for pid in pillar_ids]
 vals_b = [_portfolio_pillar_avg(port_b, company_scores_all, pid) for pid in pillar_ids]
-labels = [pillar_labels[pid] for pid in pillar_ids]
+labels = [PILLAR_LABELS[pid] for pid in pillar_ids]
 
 fig_cmp = go.Figure()
 fig_cmp.add_trace(
@@ -272,15 +238,12 @@ fig_cmp.add_trace(
     )
 )
 fig_cmp.update_layout(
-    barmode="group",
-    height=300,
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(color="#94a3b8", family="Inter", size=11),
-    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(size=11)),
-    xaxis=dict(gridcolor="rgba(255,255,255,0.04)"),
-    yaxis=dict(range=[0, 110], gridcolor="rgba(255,255,255,0.04)"),
-    margin=dict(l=0, r=0, t=10, b=0),
+    **plotly_layout(
+        barmode="group",
+        height=300,
+        yaxis=dict(range=[0, 110]),
+        margin=dict(l=0, r=0, t=10, b=0),
+    )
 )
 st.plotly_chart(
     fig_cmp,
@@ -306,7 +269,7 @@ st.plotly_chart(
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 3 — Theme-level differences
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("<div class='section-header'>Analyse par Thème</div>", unsafe_allow_html=True)
+layout.section_label("Analyse par Thème")
 
 
 def _theme_scores(port, cs_dict: dict) -> dict[str, float]:  # type: ignore[no-untyped-def]
@@ -317,7 +280,7 @@ def _theme_scores(port, cs_dict: dict) -> dict[str, float]:  # type: ignore[no-u
             continue
         for ps in cs.pillars:
             for ts in ps.themes:
-                key = f"{pillar_labels.get(ps.pillar_id, ps.pillar_id)} / {ts.theme_id.replace('_', ' ').title()}"
+                key = f"{PILLAR_LABELS.get(ps.pillar_id, ps.pillar_id)} / {ts.theme_id.replace('_', ' ').title()}"
                 totals.setdefault(key, []).append(ts.score)
     return {k: sum(v) / len(v) for k, v in totals.items()}
 
@@ -348,7 +311,7 @@ st.dataframe(theme_df, use_container_width=True, hide_index=True)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Section 4 — Top contributors to differences
 # ═══════════════════════════════════════════════════════════════════════════════
-st.markdown("<div class='section-header'>Principaux Écarts</div>", unsafe_allow_html=True)
+layout.section_label("Principaux Écarts")
 
 sorted_themes = sorted(
     [(t, themes_a.get(t, 0.0) - themes_b.get(t, 0.0)) for t in all_themes],
@@ -363,47 +326,15 @@ a_better = [(t, d) for t, d in top if d > 0.5][:3]
 b_better = [(t, d) for t, d in top if d < -0.5][:3]
 
 with col_l:
-    st.markdown(
-        f"<div style='font-size:0.65rem;color:#6366f1;text-transform:uppercase;"
-        f"letter-spacing:0.12em;font-weight:700;margin-bottom:12px'>{choice_a} en avance</div>",
-        unsafe_allow_html=True,
+    layout.advantage_block(
+        choice_a,
+        [{"theme": t, "delta": f"+{d:.1f}"} for t, d in a_better],
+        "a",
     )
-    if a_better:
-        for theme, delta in a_better:
-            st.markdown(
-                f"<div style='background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.15);"
-                f"border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;"
-                f"justify-content:space-between;align-items:center'>"
-                f"<span style='font-size:0.83rem;color:#cbd5e1'>{theme}</span>"
-                f"<span style='font-weight:700;color:#6366f1;font-size:0.9rem'>+{delta:.1f}</span>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-    else:
-        st.markdown(
-            "<div style='color:#334155;font-size:0.83rem;padding:8px 0'>Aucun avantage significatif.</div>",
-            unsafe_allow_html=True,
-        )
 
 with col_r:
-    st.markdown(
-        f"<div style='font-size:0.65rem;color:#22c55e;text-transform:uppercase;"
-        f"letter-spacing:0.12em;font-weight:700;margin-bottom:12px'>{choice_b} en avance</div>",
-        unsafe_allow_html=True,
+    layout.advantage_block(
+        choice_b,
+        [{"theme": t, "delta": f"{d:.1f}"} for t, d in b_better],
+        "b",
     )
-    if b_better:
-        for theme, delta in b_better:
-            st.markdown(
-                f"<div style='background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);"
-                f"border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex;"
-                f"justify-content:space-between;align-items:center'>"
-                f"<span style='font-size:0.83rem;color:#cbd5e1'>{theme}</span>"
-                f"<span style='font-weight:700;color:#22c55e;font-size:0.9rem'>{delta:.1f}</span>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-    else:
-        st.markdown(
-            "<div style='color:#334155;font-size:0.83rem;padding:8px 0'>Aucun avantage significatif.</div>",
-            unsafe_allow_html=True,
-        )

@@ -1,0 +1,22 @@
+<div class="cmp-table-wrap">
+    <table class="cmp-table">
+        <thead>
+            <tr>
+                <th class="cmp-th-label">Indicateur</th>
+                <th class="cmp-th-a">{{ a_label }}</th>
+                <th class="cmp-th-b">{{ b_label }}</th>
+                <th class="cmp-th-ecart">Écart</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td class="cmp-td-indicator">{{ r.indicator }}</td>
+                <td class="cmp-td-val">{{ r.a }}</td>
+                <td class="cmp-td-val">{{ r.b }}</td>
+                <td class="cmp-td-delta">{% if r.delta %}<span class="cmp-delta-{{ r.delta.kind }}">{{ r.delta.text }}</span>{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

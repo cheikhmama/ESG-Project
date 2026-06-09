@@ -5,3 +5,21 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+[client]
+showSidebarNavigation = false
+
+[theme]
+base = "dark"
+primaryColor = "#6366f1"
+backgroundColor = "#0c1321"
+secondaryBackgroundColor = "#111827"
+textColor = "#e2e8f0"
+linkColor = "#818cf8"
+font = "Inter"
+baseRadius = "0.6rem"
+
+[theme.sidebar]
+backgroundColor = "#0c1321"
+secondaryBackgroundColor = "#111827"
+textColor = "#cbd5e1"
